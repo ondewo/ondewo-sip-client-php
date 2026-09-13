@@ -1,0 +1,52 @@
+#############################################################################################
+# pre-commit - language-agnostic hooks for ondewo-sip-client-php. The PHP surface of this repository   #
+# is GENERATED (src/ is written by the ondewo-php-proto-compiler image on every           #
+# `make generate_ondewo_protos`), so PHP linting/formatting stays with the toolchain:        #
+# `make test` runs `composer validate`, `php -l` over the hand-written sources and PHPUnit.  #
+# Ruff/mypy/uv are python-only and NOT included here.                                        #
+# see https://pre-commit.com/#intro for an introduction to pre-commit                        #
+#############################################################################################
+
+# Never touch generated or vendored code. src/ is compiler-owned and rewritten wholesale on
+# every generation run; vendor/ belongs to composer; the two submodules belong to their own
+# repositories.
+exclude: '^(src|vendor|ondewo-sip-api|ondewo-proto-compiler)/'
+
+fail_fast: false
+# "fail_fast: false" means pre-commit continues to run hooks after the first failure
+
+repos:
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.0
+    hooks:
+      - id: markdownlint-cli2
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [ --maxkb=1024 ]
+      - id: check-json          # validate (does NOT reformat) composer.json
+      - id: check-yaml
+      - id: check-xml           # phpunit.xml / phpunit.xml.dist
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: detect-private-key
+      - id: check-executables-have-shebangs
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  - repo: https://github.com/milin/giticket
+    rev: '1.92'
+    hooks:
+      - id: giticket
+        args: [ '--regex=(?:(?:feature|bugfix|support|hotfix)/)?(OND[0-9]{3}-[0-9]{1,5})[_-][\w-]+',
+                '--format=[{ticket}] {commit_msg}',
+                '--mode=regex_match' ]
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [ commit-msg ]

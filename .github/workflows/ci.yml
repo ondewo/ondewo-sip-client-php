@@ -1,0 +1,109 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: pre-commit (markdownlint + hygiene)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The commit-msg-stage hooks (giticket, conventional-pre-commit) are not run by
+      # `--all-files`; they gate the message at commit time on a developer machine.
+      - name: Run pre-commit on all files
+        run: |
+          python -m pip install --upgrade pre-commit
+          pre-commit run --all-files --show-diff-on-failure
+
+  php:
+    name: php ${{ matrix.php-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.1', '8.2', '8.3', '8.4']
+    steps:
+      # The api submodule is needed by `make check_build`, which asserts that every .proto
+      # of ondewo-sip-api has generated PHP code committed in src/.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ext-grpc is a hard requirement of the generated stubs: every *Client.php extends
+      # \Grpc\BaseStub. setup-php ships a prebuilt extension, so no PECL C++ build is needed.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: grpc
+          coverage: none
+          tools: composer:v2
+
+      # Deliberately NOT --strict: the `version` field the release targets bump is a
+      # strict-mode warning that --strict turns into a failure (rc 2).
+      - name: Validate composer.json
+        run: composer validate --no-check-publish --no-interaction
+
+      - name: Syntax-check the hand-written PHP sources
+        run: make lint_php
+
+      - name: Install dependencies
+        run: |
+          if [ ! -d src ]; then
+            echo "::warning::src/ is absent - the stubs have not been generated yet, skipping the composer run"
+            exit 0
+          fi
+          composer update --no-dev --prefer-dist --no-interaction --no-progress
+
+      - name: Check that every .proto has generated PHP code
+        run: |
+          if [ ! -d src ]; then
+            echo "::warning::src/ is absent - skipping check_build"
+            exit 0
+          fi
+          make check_build
+
+      # The PHP analogue of "fail the build rather than ship a broken client": calling
+      # initOnce() on every generated descriptor walks the whole dependency chain, so a
+      # missing transitive import fails here instead of at a consumer's first RPC.
+      - name: Verify the generated stubs load
+        run: |
+          if [ ! -f vendor/autoload.php ]; then
+            echo "::warning::vendor/autoload.php is absent - skipping the descriptor load check"
+            exit 0
+          fi
+          php <<'PHP'
+          <?php
+          $classmap = require "vendor/composer/autoload_classmap.php";
+          require "vendor/autoload.php";
+          $prefix = getcwd() . "/src/";
+          $count = 0;
+          foreach ($classmap as $class => $file) {
+              if (strpos($file, $prefix) !== 0 || strpos($class, "GPBMetadata\\") !== 0) {
+                  continue;
+              }
+              $class::initOnce();
+              $count++;
+          }
+          if ($count < 1) {
+              fwrite(STDERR, "ERROR: no generated proto descriptors found in the class map\n");
+              exit(1);
+          }
+          printf("Verified %d generated proto descriptor(s)\n", $count);
+          PHP
+
+      - name: Run the PHPUnit suite when present
+        run: |
+          if [ ! -d src ] || [ ! -d tests ]; then
+            echo "no src/ or no tests/ - skipping"
+            exit 0
+          fi
+          composer update --prefer-dist --no-interaction --no-progress
+          make phpunit
