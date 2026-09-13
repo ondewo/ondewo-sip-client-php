@@ -3,17 +3,19 @@ export
 # =====================================================================================
 # ondewo-sip-client-php - Makefile
 #
-# The ONDEWO SIP (SIP Telephony) gRPC client for PHP. There is no hand-written
-# transport layer here: the whole client surface is generated from the .proto definitions of
-# ondewo-sip-api by the ondewo-proto-compiler's `ondewo-php-proto-compiler` image, and the
-# repository root IS the composer package that gets published.
+# The ONDEWO SIP (SIP Telephony) gRPC client for PHP. The transport surface is
+# generated from the .proto definitions of ondewo-sip-api by the ondewo-proto-compiler's
+# `ondewo-php-proto-compiler` image into src/ (committed - see .gitignore), the only hand-written
+# code is the bearer-token auth surface in auth/, and the repository root IS the composer package
+# that gets published.
 #
 # Quick start:
 #   make help                    # list every documented target
 #   make makefile_chapters       # list the section headers below
 #   make update_submodules       # fetch ondewo-sip-api + ondewo-proto-compiler
 #   make build                   # submodules -> compiler image -> stubs -> version bump
-#   make test                    # manifest validation + php -l + PHPUnit (when present)
+#   make test                    # manifest validation + php -l + stub inventory + PHPUnit
+#   make ci                      # exactly what .github/workflows/ci.yml runs (no submodules)
 #
 # Versioning: ONDEWO_SIP_VERSION (below) is the single source of truth and MUST
 # match the ONDEWO SIP API in major and minor version. `make update_composer_version`
@@ -68,6 +70,26 @@ PROTO_COMPILER_IMAGE=ondewo-php-proto-compiler:latest
 #                          actually imported (google/api/annotations.proto, ...).
 PROTOS_TARGET_SUBDIR=ondewo
 
+# The dev tool chain (PHPUnit + the coverage gate) lives in its OWN composer project under tools/,
+# never in the root manifest's require-dev - see tools/README.md: `composer update --no-dev` still
+# RESOLVES require-dev, and the compiler image resolves the merged manifest with the network off,
+# so one require-dev entry in composer.json takes `make generate_ondewo_protos` down with it.
+TOOLS_DIR=tools
+PHPUNIT=${TOOLS_DIR}/vendor/bin/phpunit
+COVERAGE_CHECK=${TOOLS_DIR}/vendor/bin/coverage-check
+CLOVER_REPORT=build/coverage/clover.xml
+# The hand-written sources. MUST stay in sync with phpunit.xml.dist's <source><include>.
+COVERAGE_SOURCE_DIR=auth
+# Minimum coverage of the HAND-WRITTEN sources. The generated stubs are machine output and are
+# excluded from the metric - they are exercised instead by tests/Generated/*, which loads every
+# generated class and initialises every proto descriptor.
+COVERAGE_MIN=100
+# pcov AUTO-DETECTS pcov.directory and picks this repository's src/ - the generated tree - which
+# makes it instrument nothing that phpunit.xml.dist's <source> covers and report a flat 0%. The
+# directive is PHP_INI_SYSTEM, so phpunit.xml.dist's <ini> cannot set it; it has to be passed on
+# the interpreter's command line. Harmless when the driver is xdebug (unknown directive, ignored).
+PHP_COVERAGE_FLAGS=-d pcov.enabled=1 -d pcov.directory=${COVERAGE_SOURCE_DIR}
+
 # You need to setup an access token at https://github.com/settings/tokens - permissions are important
 GITHUB_GH_TOKEN?=ENTER_YOUR_TOKEN_HERE
 
@@ -95,7 +117,7 @@ NC     := \033[0m
 #       ONDEWO Standard Make Targets
 ########################################################
 
-setup_developer_environment_locally: update_submodules install_dependencies install_precommit_hooks ## Ready a fresh laptop: submodules, composer dependencies and pre-commit hooks
+setup_developer_environment_locally: update_submodules install_dependencies install_dev_tools install_precommit_hooks ## Ready a fresh laptop: submodules, composer dependencies, dev tools and pre-commit hooks
 
 install_precommit_hooks: ## Installs pre-commit hooks and sets them up for the ondewo-sip-client-php repo
 	pre-commit install
@@ -167,7 +189,7 @@ update_composer_version: ## Set ONDEWO_SIP_VERSION as the `version` field of com
 	@perl -i -pe 's/^(\s*"version":\s*")[0-9]+\.[0-9]+\.[0-9]+(")/$${1}${ONDEWO_SIP_VERSION}$${2}/' composer.json
 	@echo "$(GREEN)[SUCCESS]$(NC) composer.json version set to ${ONDEWO_SIP_VERSION}"
 
-install_dependencies: ## Resolve and install the composer dependencies (needs network, includes dev)
+install_dependencies: ## Resolve and install the composer dependencies of the package (needs network)
 # composer.json declares autoload.classmap ["src/"], and `composer update` aborts with
 #	'Could not scan for classes inside "src/" which does not appear to be a file nor a folder'
 #	when the stubs have not been generated yet. An empty src/ is harmless - it is compiler-owned
@@ -175,13 +197,28 @@ install_dependencies: ## Resolve and install the composer dependencies (needs ne
 	@mkdir -p src
 	composer update --prefer-dist --no-interaction --no-progress
 
-clean: ## Remove the composer artifacts and the generated stubs
-	rm -rf vendor composer.lock src
+install_dev_tools: ## Resolve and install PHPUnit + the coverage gate into tools/vendor (needs network)
+# No lock file is committed for tools/: it would pin ONE phpunit major, and this repository is
+#	tested on php 8.1 (phpunit 10) through 8.4 (phpunit 11) - the constraint has to be re-resolved
+#	per interpreter, which is what `update` does and `install` cannot.
+	composer update --working-dir=${TOOLS_DIR} --prefer-dist --no-interaction --no-progress
+
+clean: ## Remove the composer artifacts, the dev tools and the generated stubs
+	rm -rf vendor composer.lock src ${TOOLS_DIR}/vendor ${TOOLS_DIR}/composer.lock build .phpunit.cache
 
 ########################################################
 #		Test
 
-test: composer_validate lint_php check_build phpunit ## Validate the manifest, syntax-check hand-written PHP, check the stubs and run PHPUnit
+test: composer_validate lint_php check_build coverage ## Validate the manifest, syntax-check hand-written PHP, check the stubs against the api submodule and run the covered PHPUnit suite
+
+# What .github/workflows/ci.yml runs, verbatim. It deliberately leaves `check_build` out: that
+# target compares src/ against the ondewo-sip-api submodule, and CI checks out NO submodules -
+# the stubs are committed, so what CI has to prove is that the COMMITTED tree builds and passes
+# its tests. tests/Generated/GeneratedCodeTest.php carries the submodule-free half of the same
+# assertion (every generated class loads, every descriptor initialises, every expected service
+# client exists) and fails - never skips - when src/ is missing.
+ci: composer_validate lint_php coverage ## Run the CI gate locally (no submodules, no docker)
+	@echo "$(GREEN)[SUCCESS]$(NC) CI gate passed"
 
 composer_validate: ## Validate composer.json
 # Deliberately NOT --strict: the `version` field the release targets bump is a strict-mode
@@ -212,12 +249,28 @@ check_build: ## Fails if any .proto of the API submodule has no generated PHP co
 		done || exit 1
 	@echo "$(GREEN)[SUCCESS]$(NC) every .proto has generated PHP code"
 
-phpunit: ## Run the PHPUnit suite when one is present
-	@if [ -x vendor/bin/phpunit ] && [ -d tests ]; then \
-		vendor/bin/phpunit --colors=never; \
-	else \
-		echo "$(YELLOW)[WARN]$(NC) no vendor/bin/phpunit or no tests/ - skipping (run 'make install_dependencies')"; \
-	fi
+# NOTE: no `[ -x ... ] || skip` guard. A missing tool chain or a missing test suite is a RED
+#	build, not a green one - that guard is exactly what let this repository's CI pass while it
+#	held no code at all.
+phpunit: ## Run the PHPUnit suite
+	@test -x ${PHPUNIT} \
+		|| { echo "$(RED)[ERROR]$(NC) '${PHPUNIT}' is missing - run 'make install_dev_tools'"; exit 1; }
+	@test -f vendor/autoload.php \
+		|| { echo "$(RED)[ERROR]$(NC) 'vendor/autoload.php' is missing - run 'make install_dependencies'"; exit 1; }
+	${PHPUNIT} --colors=never
+
+coverage: ## Run the PHPUnit suite with coverage and fail below COVERAGE_MIN% of the hand-written code
+	@test -x ${PHPUNIT} \
+		|| { echo "$(RED)[ERROR]$(NC) '${PHPUNIT}' is missing - run 'make install_dev_tools'"; exit 1; }
+	@test -f vendor/autoload.php \
+		|| { echo "$(RED)[ERROR]$(NC) 'vendor/autoload.php' is missing - run 'make install_dependencies'"; exit 1; }
+# --fail-on-skipped/--fail-on-incomplete: a test that quietly skips itself is the green-by-omission
+#	failure mode this suite exists to rule out.
+	php ${PHP_COVERAGE_FLAGS} ${PHPUNIT} --colors=never --fail-on-skipped --fail-on-incomplete \
+		--coverage-clover ${CLOVER_REPORT} --coverage-text
+	@test -f ${CLOVER_REPORT} \
+		|| { echo "$(RED)[ERROR]$(NC) no coverage report at '${CLOVER_REPORT}' - is a coverage driver (pcov/xdebug) enabled?"; exit 1; }
+	${COVERAGE_CHECK} ${CLOVER_REPORT} ${COVERAGE_MIN}
 
 ########################################################
 #		Submodules
@@ -253,9 +306,9 @@ release: ## Automate the entire release process
 # top-level and NOT covered by `git add src`, so leaving it out means a fix written there is
 # published from the tag without ever reaching the repository.
 	-git add auth
-# tests/ and examples/ are not part of the published classmap, but a regression test written
-# alongside a fix must reach the repository or CI never runs it.
-	-git add tests examples
+# tests/, tools/ and examples/ are not part of the published classmap, but a regression test
+# written alongside a fix must reach the repository or CI never runs it.
+	-git add tests examples tools phpunit.xml.dist
 	git add ${ONDEWO_PROTO_COMPILER_DIR}
 	git add ${ONDEWO_SIP_API_DIR}
 	git status

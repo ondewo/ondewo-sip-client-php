@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PHPUnit lives in tools/vendor (see tools/README.md), the library autoloader in vendor/.
+  `bootstrap` therefore points at the ROOT autoloader: it is what maps the 11 generated classes
+  under src/, the hand-written auth/ sources and the Ondewo\Sip\Tests\ test namespace.
+
+  <source> is the coverage scope and deliberately covers ONLY auth/ - the hand-written code.
+  The generated stubs are machine output and are excluded from the METRIC, but they are still
+  exercised for real by tests/Generated/*: every one of the 11 classes is loaded, every proto
+  descriptor is initialised, messages are round-tripped through the wire format and the service
+  stubs are constructed against a dummy channel.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="tools/vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         executionOrder="depends,defects"
+         beStrictAboutOutputDuringTests="true"
+         failOnRisky="true"
+         failOnWarning="true">
+  <testsuites>
+    <testsuite name="ondewo-sip-client-php">
+      <directory>tests</directory>
+    </testsuite>
+  </testsuites>
+  <source>
+    <include>
+      <directory>auth</directory>
+    </include>
+  </source>
+</phpunit>

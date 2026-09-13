@@ -27,13 +27,20 @@ There is no hand-written transport layer in this repository. The entire client s
 one `<Service>Client` stub per gRPC service — is generated from the protocol buffer definitions of the
 [ondewo-sip-api](https://github.com/ondewo/ondewo-sip-api) repository by the
 [ONDEWO proto compiler](https://github.com/ondewo/ondewo-proto-compiler), which is vendored here as a git
-submodule and pinned to a release tag. The repository root **is** the composer package: what is committed
-here is exactly what a consumer receives.
+submodule and pinned to a release tag. The generated stubs are **committed** — the repository root *is* the
+composer package, Packagist serves the tree of a git tag verbatim and composer has no build step, so what is
+committed here is exactly what a consumer receives.
+
+The only hand-written PHP is the bearer-token authentication surface in `auth/`, which turns a token into the
+`$opts` array a generated stub is constructed with.
 
 ## Requirements
 
 * PHP >= 8.1
 * The **grpc** PHP extension (`ext-grpc`) — every generated `<Service>Client` extends `\Grpc\BaseStub`
+* The **bcmath** PHP extension (`ext-bcmath`) — only to parse integers out of the JSON wire
+  format; `google/protobuf` merely *suggests* it, so `mergeFromJsonString()` on a message with an
+  int field fails without it
 * [Composer](https://getcomposer.org/) 2.x
 * Docker — only to *regenerate* the stubs, never to *use* the client
 
@@ -41,7 +48,7 @@ Installing the extension:
 
 ```bash
 # Debian / Ubuntu
-sudo apt-get install -y php-grpc
+sudo apt-get install -y php-grpc php-bcmath
 # or, from source
 sudo pecl install grpc
 ```
@@ -66,26 +73,31 @@ make setup_developer_environment_locally
 
 ```
 .
-├── ondewo-sip-api              <----- submodule: the .proto definitions (ondewo/ = the services, google/ = imports)
+├── ondewo-sip-api          <----- submodule: the .proto definitions (ondewo/ = the services, google/ = imports)
 ├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.0
-├── auth                    <----- HAND-WRITTEN sources (bearer credentials, token provider)
-├── src                     <----- GENERATED stubs - compiler-owned, wiped on every generation run
+├── auth                    <----- HAND-WRITTEN sources (bearer token authenticator)
+├── src                     <----- GENERATED stubs, committed - compiler-owned, wiped on every generation run
 │   ├── GPBMetadata         <----- descriptor bootstrap, one class per .proto
 │   └── Ondewo              <----- messages, enums and the <Service>Client stubs
 ├── tests                   <----- PHPUnit suite (not part of the published classmap)
+├── tools                   <----- dev-only composer project: PHPUnit + the coverage gate
 ├── vendor                  <----- composer dependencies (gitignored)
 ├── composer.json           <----- the package manifest; MERGED with the compiler defaults on every run
+├── phpunit.xml.dist        <----- test suite + coverage scope (auth/ only)
 └── Makefile                <----- build, test and release automation
 ```
 
-Two rules follow from that layout and matter more than anything else in this file:
+Three rules follow from that layout and matter more than anything else in this file:
 
 1. **Never put hand-written PHP in `src/`.** It is deleted and rewritten on every generation run. Hand-written
    code belongs in `auth/` at the repository root — the compiler image detects that directory and adds it to
    the shipped autoloader's classmap itself.
-2. **Never edit `composer.json`'s `require` to pin `google/protobuf` or `grpc/grpc`.** The compiler image
-   resolves the library offline from a cache it pre-warmed at image-build time; a pin outside that cache fails
-   the generation run.
+2. **Never pin `google/protobuf` or `grpc/grpc` in `composer.json` to anything other than the versions the
+   compiler image ships.** The image resolves the merged manifest offline from a cache it pre-warmed at
+   image-build time; a pin outside that cache fails the generation run.
+3. **Never add `require-dev` to the root `composer.json`.** `composer update --no-dev` still *resolves* dev
+   requirements in order to write a lock file, so a single entry there makes that same offline resolution fail.
+   Dev tooling lives in its own composer project under `tools/` — see [tools/README.md](tools/README.md).
 
 ## Regenerating the stubs
 
@@ -136,22 +148,28 @@ docker run -it --entrypoint /bin/bash \
 require __DIR__ . '/vendor/autoload.php';
 
 use Grpc\ChannelCredentials;
+use Ondewo\Sip\Auth\BearerTokenAuthenticator;
+use Ondewo\Sip\SipClient;
+use Ondewo\Sip\SipStartSessionRequest;
 
 // The PHP namespace is protoc's UpperCamel form of the proto package:
-// `package ondewo.sip;` becomes `Ondewo\Sip`, and a service `Foo` becomes
-// `FooClient` (grpc_php_plugin's default class suffix). Browse src/Ondewo/Sip for
-// the services and messages your pinned API version actually declares.
-$client = new \Ondewo\Sip\ExampleServiceClient(
+// `package ondewo.sip;` becomes `Ondewo\Sip`, and the service `Sip` becomes
+// `SipClient` (grpc_php_plugin's default class suffix). Browse src/Ondewo/Sip for
+// the messages your pinned API version actually declares.
+//
+// BearerTokenAuthenticator is the hand-written half: it builds the `$opts` array and
+// stamps `authorization: Bearer <token>` onto the metadata of every call.
+$auth = new BearerTokenAuthenticator(getenv('ONDEWO_TOKEN'));
+$client = new SipClient(
     getenv('ONDEWO_SIP_HOST') ?: 'localhost:50055',
-    ['credentials' => ChannelCredentials::createSsl()]
+    $auth->channelOptions(ChannelCredentials::createSsl())
 );
 
-// ONDEWO servers authenticate with a bearer token passed as call metadata.
-$metadata = ['authorization' => ['Bearer ' . getenv('ONDEWO_TOKEN')]];
+$request = new SipStartSessionRequest();
+$request->setAccountName('sip:4242@ondewo.com');
+$request->setAutoAnswerInterval(5);
 
-$request = new \Ondewo\Sip\ExampleRequest();
-
-[$response, $status] = $client->ExampleMethod($request, $metadata)->wait();
+[$response, $status] = $client->SipStartSession($request)->wait();
 
 if ($status->code !== \Grpc\STATUS_OK) {
     throw new RuntimeException("gRPC call failed ({$status->code}): {$status->details}");
@@ -160,21 +178,33 @@ if ($status->code !== \Grpc\STATUS_OK) {
 echo $response->serializeToJsonString(), PHP_EOL;
 ```
 
-For an insecure channel against a local server, swap the credentials for
-`ChannelCredentials::createInsecure()`.
+For an insecure channel against a local server, call `$auth->channelOptions()` with no argument — `null`
+credentials is exactly what `ChannelCredentials::createInsecure()` returns.
 
 ## Testing
 
 ```bash
-make test
+make ci        # what GitHub Actions runs: no submodules, no docker
+make test      # the same, plus `make check_build` against the ondewo-sip-api submodule
 ```
 
-Which is `composer validate` → `php -l` over the hand-written sources → `make check_build` (every `.proto` of
-the API submodule has generated PHP code) → PHPUnit, when a suite and `vendor/bin/phpunit` are present.
+`make ci` is `composer validate` → `php -l` over the hand-written sources → PHPUnit with coverage → the
+coverage threshold gate. It runs on PHP 8.1 and 8.4 in GitHub Actions, against the **committed** stubs: no
+docker image is built and no proto compiler runs there.
 
-The same steps run in GitHub Actions on PHP 8.1 through 8.4, plus a check that every generated descriptor
-loads: `initOnce()` on each `GPBMetadata` class walks the whole descriptor dependency chain, so a missing
-transitive import fails CI instead of a consumer's first RPC.
+What the suite actually asserts:
+
+| Test | What it would catch |
+| --- | --- |
+| `tests/Generated/GeneratedCodeTest.php` | A stub that does not load, a `GPBMetadata` descriptor whose `initOnce()` chain has a missing transitive import, a service whose client class was never generated, an empty `src/` |
+| `tests/Generated/MessageSerializationTest.php` | A field that never reaches the wire, a sub-message that loses its presence bit, a moved enum zero constant, a broken JSON mapping (including the integer path, which needs `ext-bcmath`) |
+| `tests/Generated/ServiceClientTest.php` | A stub that cannot be constructed, a missing or re-shaped RPC method, a unary RPC that silently became a streaming one |
+| `tests/Auth/BearerTokenAuthenticatorTest.php` | Any regression in the hand-written auth surface |
+
+Coverage is reported for the **hand-written** code only — `phpunit.xml.dist`'s `<source>` is `auth/`, and
+`make coverage` fails below `COVERAGE_MIN` (100%). The generated stubs are machine output and are deliberately
+outside the metric, but they are not outside the tests: every one of the committed classes is loaded and every
+descriptor initialised by `GeneratedCodeTest`.
 
 ## Versioning and releasing
 

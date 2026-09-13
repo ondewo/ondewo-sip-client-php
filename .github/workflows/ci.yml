@@ -4,14 +4,22 @@ on:
   push:
   pull_request:
 
+# The generated stubs under src/ are COMMITTED (see .gitignore), so this workflow builds and tests
+# the tree as it stands: no docker image, no proto compiler, no submodules. Regenerating the stubs
+# from ondewo-sip-api is a separate integration concern driven by `make build` on a developer
+# machine.
+#
+# There is deliberately not a single `[ -d ... ] || exit 0` guard below. The previous revision of
+# this file skipped every step when src/ was absent, which made a repository that held no code at
+# all report green.
 jobs:
   lint:
     name: pre-commit (markdownlint + hygiene)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -28,82 +36,61 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.1', '8.2', '8.3', '8.4']
+        # The lowest and the highest interpreter composer.json claims support for. They also pick
+        # different PHPUnit majors out of tools/composer.json (10.5 on 8.1, 11.5 on 8.4), so both
+        # are really exercised.
+        php-version: ['8.1', '8.4']
     steps:
-      # The api submodule is needed by `make check_build`, which asserts that every .proto
-      # of ondewo-sip-api has generated PHP code committed in src/.
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v7
 
       # ext-grpc is a hard requirement of the generated stubs: every *Client.php extends
       # \Grpc\BaseStub. setup-php ships a prebuilt extension, so no PECL C++ build is needed.
+      # pcov is the coverage driver the threshold gate below needs.
+      # bcmath is what google/protobuf's PURE-PHP JSON parser range-checks integers with; it only
+      # `suggest`s the extension, so mergeFromJsonString() on any int field dies with "Call to
+      # undefined function Google\Protobuf\Internal\bccomp()" without it.
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
-          extensions: grpc
-          coverage: none
+          extensions: grpc, bcmath
+          coverage: pcov
           tools: composer:v2
+
+      - name: Show the toolchain
+        run: |
+          php --version
+          php -r 'exit(extension_loaded("grpc") ? 0 : 1);' || { echo "::error::ext-grpc did not load"; exit 1; }
+          php -r 'exit(extension_loaded("bcmath") ? 0 : 1);' || { echo "::error::ext-bcmath did not load"; exit 1; }
+          composer --version
 
       # Deliberately NOT --strict: the `version` field the release targets bump is a
       # strict-mode warning that --strict turns into a failure (rc 2).
       - name: Validate composer.json
-        run: composer validate --no-check-publish --no-interaction
+        run: make composer_validate
 
       - name: Syntax-check the hand-written PHP sources
         run: make lint_php
 
-      - name: Install dependencies
-        run: |
-          if [ ! -d src ]; then
-            echo "::warning::src/ is absent - the stubs have not been generated yet, skipping the composer run"
-            exit 0
-          fi
-          composer update --no-dev --prefer-dist --no-interaction --no-progress
+      # This is the PHP "build": composer generates the class map over all 11 committed stubs,
+      # which is also what surfaces a duplicate class declaration.
+      - name: Install the package dependencies
+        run: make install_dependencies
 
-      - name: Check that every .proto has generated PHP code
-        run: |
-          if [ ! -d src ]; then
-            echo "::warning::src/ is absent - skipping check_build"
-            exit 0
-          fi
-          make check_build
+      - name: Install the dev tool chain
+        run: make install_dev_tools
 
-      # The PHP analogue of "fail the build rather than ship a broken client": calling
-      # initOnce() on every generated descriptor walks the whole dependency chain, so a
-      # missing transitive import fails here instead of at a consumer's first RPC.
-      - name: Verify the generated stubs load
-        run: |
-          if [ ! -f vendor/autoload.php ]; then
-            echo "::warning::vendor/autoload.php is absent - skipping the descriptor load check"
-            exit 0
-          fi
-          php <<'PHP'
-          <?php
-          $classmap = require "vendor/composer/autoload_classmap.php";
-          require "vendor/autoload.php";
-          $prefix = getcwd() . "/src/";
-          $count = 0;
-          foreach ($classmap as $class => $file) {
-              if (strpos($file, $prefix) !== 0 || strpos($class, "GPBMetadata\\") !== 0) {
-                  continue;
-              }
-              $class::initOnce();
-              $count++;
-          }
-          if ($count < 1) {
-              fwrite(STDERR, "ERROR: no generated proto descriptors found in the class map\n");
-              exit(1);
-          }
-          printf("Verified %d generated proto descriptor(s)\n", $count);
-          PHP
+      # Loads every generated class, initialises every proto descriptor, round-trips messages
+      # through the wire format, constructs the service stubs - and then fails if the hand-written
+      # auth/ sources drop below 100% line coverage.
+      - name: Test with coverage (fails below 100% of the hand-written code)
+        run: make coverage
 
-      - name: Run the PHPUnit suite when present
-        run: |
-          if [ ! -d src ] || [ ! -d tests ]; then
-            echo "no src/ or no tests/ - skipping"
-            exit 0
-          fi
-          composer update --prefer-dist --no-interaction --no-progress
-          make phpunit
+      # `make coverage` already fails when the report is missing, and --coverage-text puts the
+      # numbers in the log - this is just the machine-readable copy.
+      - name: Upload the coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-php-${{ matrix.php-version }}
+          path: build/coverage/clover.xml
+          if-no-files-found: error

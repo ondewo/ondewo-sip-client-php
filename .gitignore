@@ -15,6 +15,12 @@
 /composer.lock
 /composer.phar
 
+# The dev tool chain (PHPUnit + the coverage gate) is its own composer project - see
+# tools/README.md. Its lock is NOT committed: the phpunit constraint has to re-resolve per
+# interpreter across the php 8.1 - 8.4 CI matrix.
+/tools/vendor/
+/tools/composer.lock
+
 # Composer / PHP tool caches
 .composer/
 .php-cs-fixer.cache
