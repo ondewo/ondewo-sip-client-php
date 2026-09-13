@@ -48,11 +48,7 @@ ONDEWO_SIP_VERSION=5.4.0
 # Submodule pins. Both are checked out by `make checkout_defined_submodule_versions`, so the
 # stubs of a release are always reproducible from the two commits recorded here.
 ONDEWO_SIP_API_GIT_BRANCH=tags/5.4.0
-# PROVISIONAL PIN. The six compiled-language targets this client depends on landed on the
-# branch below; ondewo-proto-compiler 5.15.0 is not tagged yet. Once that release is cut this
-# becomes tags/5.15.0 - `make release_update_proto_compiler_dependency_<lang>` in the compiler
-# repo rewrites it, so do not hand-edit it then.
-ONDEWO_PROTO_COMPILER_GIT_BRANCH=feature/rust-php-go-cpp-java-csharp
+ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.0
 
 # Submodule directories - both sit at the repository root, see .gitmodules
 ONDEWO_SIP_API_DIR=ondewo-sip-api
