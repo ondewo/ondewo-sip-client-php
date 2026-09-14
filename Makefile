@@ -540,12 +540,16 @@ packagist_update: ## Ping the Packagist update API so it crawls the tags of this
 		"${PACKAGIST_UPDATE_API}"`; \
 	echo "$(BLUE)[INFO]$(NC) Packagist answered HTTP $$code"; \
 	cat build/packagist-update-response.json; echo; \
-	if [ "$$code" != "200" ]; then \
+	# Packagist answers 202 Accepted on success - the crawl is queued, not finished - and
+	# 200 only on some paths. Both are success; the authoritative signal is status=success
+	# in the body, checked below. Demanding 200 alone reported a completed publish as a
+	# credentials failure.
+	if [ "$$code" != "200" ] && [ "$$code" != "202" ]; then \
 		echo "$(RED)[ERROR]$(NC) Packagist rejected the update (HTTP $$code). 40x means the credentials are wrong or ${PACKAGIST_PACKAGE} has never been submitted - see README 'Publishing to Packagist'"; \
 		exit 1; \
 	fi
 	@grep -q '"status" *: *"success"' build/packagist-update-response.json \
-		|| { echo "$(RED)[ERROR]$(NC) Packagist returned HTTP 200 without status=success - see the response above"; exit 1; }
+		|| { echo "$(RED)[ERROR]$(NC) Packagist returned HTTP $$code without status=success - see the response above"; exit 1; }
 	@echo "$(GREEN)[SUCCESS]$(NC) Packagist is crawling ${PACKAGIST_REPOSITORY_URL}"
 
 ########################################################
