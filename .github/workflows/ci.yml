@@ -1,8 +1,24 @@
 name: ci
 
+# `branches: ['**']` is NOT decoration: a bare `push:` also matches a TAG push, so every
+# release tag used to run this whole workflow a second time alongside release.yml. Branch
+# pushes and pull requests are what this gate is for; the tagged tree is release.yml's job.
 on:
   push:
+    branches: ['**']
   pull_request:
+  workflow_dispatch:
+
+# Nothing here writes to the repository - it only builds and tests the checkout - so drop the
+# default read-write GITHUB_TOKEN down to read. release.yml declares its own.
+permissions:
+  contents: read
+
+# One run per branch/PR ref: a new push supersedes the in-flight run. Never on master, so every
+# commit on the release branch keeps its own result instead of being cancelled by the next push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 # The generated stubs under src/ are COMMITTED (see .gitignore), so this workflow builds and tests
 # the tree as it stands: no docker image, no proto compiler, no submodules. Regenerating the stubs
@@ -16,6 +32,7 @@ jobs:
   lint:
     name: pre-commit (markdownlint + hygiene)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
@@ -33,6 +50,7 @@ jobs:
   php:
     name: php ${{ matrix.php-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

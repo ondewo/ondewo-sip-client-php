@@ -37,6 +37,21 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
 
+  # conventional-pre-commit MUST stay declared BEFORE giticket. Both run at the commit-msg stage
+  # and pre-commit runs them in DECLARATION ORDER. giticket rewrites the subject to
+  # "[OND221-2830] feat: ...", which is no longer valid Conventional Commits, so with giticket
+  # first every commit on a ticket branch fails this hook and can only land with --no-verify.
+  # Measured on a throwaway repo, branch feature/OND221-2830-hook-order-probe, subject
+  # "feat: probe the hook ordering":
+  #   giticket first -> "Conventional Commit ... Failed", git commit exits 1, nothing is committed
+  #   giticket second -> both Passed, commit lands as "[OND221-2830] feat: probe the hook ordering"
+  # Validate first, decorate second.
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [ commit-msg ]
+
   - repo: https://github.com/milin/giticket
     rev: '1.92'
     hooks:
@@ -44,9 +59,3 @@ repos:
         args: [ '--regex=(?:(?:feature|bugfix|support|hotfix)/)?(OND[0-9]{3}-[0-9]{1,5})[_-][\w-]+',
                 '--format=[{ticket}] {commit_msg}',
                 '--mode=regex_match' ]
-
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.4.0
-    hooks:
-      - id: conventional-pre-commit
-        stages: [ commit-msg ]

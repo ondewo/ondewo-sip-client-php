@@ -49,7 +49,7 @@ ONDEWO_SIP_VERSION=5.4.0
 # Submodule pins. Both are checked out by `make checkout_defined_submodule_versions`, so the
 # stubs of a release are always reproducible from the two commits recorded here.
 ONDEWO_SIP_API_GIT_BRANCH=tags/5.4.0
-ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.0
+ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.1
 
 # Submodule directories - both sit at the repository root, see .gitmodules
 ONDEWO_SIP_API_DIR=ondewo-sip-api
@@ -115,9 +115,9 @@ PACKAGIST_UPDATE_API=https://packagist.org/api/update-package
 # GH_REPO carries its double quotes as part of the VALUE (harmless in a recipe, where the shell
 # strips them again); the JSON payload below is assembled by make itself, so they come off here.
 PACKAGIST_REPOSITORY_URL=$(subst ",,$(GH_REPO))
-# The request body of the update API. It carries no credentials - those travel as query
-# parameters - which is why `make packagist_dry_run` can verify the exact payload the real
-# publish sends without holding a single secret.
+# The request body of the update API. It carries no credentials - those travel in an
+# Authorization header - which is why `make packagist_dry_run` can verify the exact payload the
+# real publish sends without holding a single secret.
 PACKAGIST_UPDATE_PAYLOAD={"repository":{"url":"$(PACKAGIST_REPOSITORY_URL)"}}
 
 # The release tag under verification. Left EMPTY locally, where `check_version_agreement` derives
@@ -321,6 +321,17 @@ checkout_defined_submodule_versions: update_submodules ## Check out the submodul
 
 release: ## Automate the entire release process
 	@echo "$(BLUE)[INFO]$(NC) Start Release"
+# FIRST, before anything is built, committed, branched, tagged or pushed. Both credentials used to
+# be exercised only at the very END of this recipe - GITHUB_GH_TOKEN in login_to_gh, the Packagist
+# pair in `make publish` - by which time the release branch and the release tag are already on
+# origin. A missing token therefore left an immovable tag behind, and `spc` then refused every
+# retry because that branch and that tag now exist. A release that cannot reach GitHub or
+# Packagist has to fail while it is still a no-op.
+	make check_gh_credentials
+	make check_packagist_credentials
+# Same reasoning for the notes: `gh release create -n ""` publishes an EMPTY release without
+# complaining, and that cannot be discovered after the tag has been pushed either.
+	make check_release_notes
 	make build
 	-make precommit_hooks_run_all_files
 	make check_build
@@ -365,13 +376,34 @@ create_release_tag: ## Create Release Tag and push it to origin
 push_to_gh: login_to_gh build_gh_release ## Logs into GitHub CLI and Releases
 	@echo "$(GREEN)[SUCCESS]$(NC) Released to GitHub"
 
+# Never prints the token, only whether it is usable. The EMPTY string has to be rejected next to
+# the placeholder: an unset GitHub secret and `make release GITHUB_GH_TOKEN=` both expand to it,
+# and `gh auth login --with-token` fed an empty line fails long after the tag has been pushed.
+# Split out of login_to_gh so `release` can run it as its very first step - see the comment there.
+check_gh_credentials: ## Fail unless GITHUB_GH_TOKEN is set
+	@if [ -z "$${GITHUB_GH_TOKEN}" ] || [ "$${GITHUB_GH_TOKEN}" = "ENTER_YOUR_TOKEN_HERE" ]; then \
+		echo "$(RED)[ERROR]$(NC) GITHUB_GH_TOKEN is not set - create one at https://github.com/settings/tokens (devops-accounts: account_github.env)"; exit 1; fi
+	@echo "$(GREEN)[SUCCESS]$(NC) GITHUB_GH_TOKEN is set"
+
 # Prefixed with @ so the token never reaches the build log.
-login_to_gh: ## Login to Github CLI with Access Token
-	@test "${GITHUB_GH_TOKEN}" != "ENTER_YOUR_TOKEN_HERE" \
-		|| { echo "$(RED)[ERROR]$(NC) GITHUB_GH_TOKEN is not set - create one at https://github.com/settings/tokens"; exit 1; }
+login_to_gh: check_gh_credentials ## Login to Github CLI with Access Token
 	@echo $(GITHUB_GH_TOKEN) | gh auth login -p ssh --with-token
 
-build_gh_release: ## Generate Github Release with CLI
+# `gh release create -n ""` succeeds and publishes an EMPTY release, so a forgotten RELEASE.md
+# entry - or a heading whose wording drifted away from what the CURRENT_RELEASE_NOTES flip-flop
+# greps for - is otherwise only noticed by whoever reads the release page afterwards. This asserts
+# the SLICE, not the heading: check_version_agreement already greps for the heading, and only a
+# non-empty slice proves the perl flip-flop actually produced notes to publish.
+check_release_notes: ## Assert RELEASE.md carries an entry for ONDEWO_SIP_VERSION
+	@notes="$(CURRENT_RELEASE_NOTES)"; \
+	if [ -z "$$notes" ]; then \
+		echo "$(RED)[ERROR]$(NC) RELEASE.md has no '## Release ONDEWO SIP PHP Client ${ONDEWO_SIP_VERSION}' entry"; \
+		echo "        The GitHub release would be created with empty notes - add the entry first."; \
+		exit 1; \
+	fi; \
+	echo "$(GREEN)[SUCCESS]$(NC) RELEASE.md has release notes for ${ONDEWO_SIP_VERSION}"
+
+build_gh_release: check_release_notes ## Generate Github Release with CLI
 	gh release create --repo $(GH_REPO) "$(ONDEWO_SIP_VERSION)" -n "$(CURRENT_RELEASE_NOTES)" -t "Release ${ONDEWO_SIP_VERSION}"
 
 ########################################################
@@ -484,14 +516,28 @@ check_packagist_credentials: ## Fail unless PACKAGIST_USERNAME and PACKAGIST_API
 # $(PACKAGIST_API_TOKEN): should the @ ever be dropped, make then echoes the variable NAME instead
 # of the token. --fail is deliberately NOT used - the http code is inspected by hand so a 403 is
 # reported as "bad credentials" instead of curl's bare exit 22.
+#
+# THE CREDENTIALS ARE NOT IN THE URL. Packagist's ApiController::findUser() accepts three spellings
+# - POST body parameters, ?username=&apiToken= query parameters, and an `Authorization: Bearer
+# <username>:<apiToken>` header that takes precedence over the other two - and only the header keeps
+# the token out of places that are not ours. The query parameter put it in /proc/<pid>/cmdline,
+# which is world-readable, in the shell history of anyone who copied the command, and in the access
+# log of every proxy on the way. The POST body is no use here: Symfony reads body parameters out of
+# FORM encoding, and the body of this request is the JSON payload above.
+#
+# The header itself is fed to curl through `--config -` on STDIN rather than a `-H` argument,
+# because a -H argument would land in the process table exactly like the query parameter did.
+# printf is a shell builtin, so the only command line that ever holds the values is curl's - and
+# curl's holds neither.
 packagist_update: ## Ping the Packagist update API so it crawls the tags of this repository
 	@mkdir -p build
 	@echo "$(BLUE)[INFO]$(NC) Asking Packagist to crawl ${PACKAGIST_REPOSITORY_URL} ..."
-	@code=`curl --silent --show-error --location \
+	@code=`printf 'header = "Authorization: Bearer %s:%s"\n' "$${PACKAGIST_USERNAME}" "$${PACKAGIST_API_TOKEN}" \
+		| curl --silent --show-error --location --config - \
 		--output build/packagist-update-response.json --write-out '%{http_code}' \
 		-X POST -H 'Content-Type: application/json' \
 		-d '$(PACKAGIST_UPDATE_PAYLOAD)' \
-		"${PACKAGIST_UPDATE_API}?username=$${PACKAGIST_USERNAME}&apiToken=$${PACKAGIST_API_TOKEN}"`; \
+		"${PACKAGIST_UPDATE_API}"`; \
 	echo "$(BLUE)[INFO]$(NC) Packagist answered HTTP $$code"; \
 	cat build/packagist-update-response.json; echo; \
 	if [ "$$code" != "200" ]; then \
@@ -516,10 +562,25 @@ run_release_with_devops: ## Gets Credentials from devops-repo and run release co
 	$(eval info:= $(shell cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH & cat ${DEVOPS_ACCOUNT_DIR}/account_packagist.env | grep PACKAGIST_USERNAME & cat ${DEVOPS_ACCOUNT_DIR}/account_packagist.env | grep PACKAGIST_API_TOKEN))
 	@make release $(info)
 
+# All three tests used to match on a SUBSTRING, which made each of them lie:
+#   * `git branch --all | grep "release/7.1.0"` also matches release/7.1.0-rc1 and
+#     release/17.1.0, so an unrelated branch blocks the release. Anchored on both ends now, the
+#     way cpp/ and csharp/ spell it: `(^|[ /])release/<escaped version>$$` - `[ /]` so that
+#     `remotes/origin/release/7.1.0` still counts, and $(subst .,\.,...) so the dots of the
+#     version are literal dots rather than "any character".
+#   * `git tag --list | grep "7.1.0"` also matches 7.1.0 as a substring of 17.1.0 and of 7.1.01.
+#     `grep -Fx` is a fixed-string, whole-line match: only the tag itself.
+#   * Test 3 compared the composer.json LINE against the empty string, so it passed for ANY
+#     version the field happened to hold - including the previous release's, which is exactly the
+#     mistake it exists to catch. Compare the VALUE to ONDEWO_SIP_VERSION, the way rust/ and
+#     java/ do. `test -f` first so a missing manifest reports the version mismatch instead of a
+#     sed error.
 spc: ## Checks if the Release Branch, Tag and composer.json version already exist
-	$(eval filtered_branches:= $(shell git branch --all | grep "release/${ONDEWO_SIP_VERSION}"))
-	$(eval filtered_tags:= $(shell git tag --list | grep "${ONDEWO_SIP_VERSION}"))
-	$(eval composer_version:= $(shell grep '"version"' composer.json))
-	@if test "$(filtered_branches)" != ""; then echo "-- Test 1: Branch exists!!" & exit 1; else echo "-- Test 1: Branch is fine";fi
-	@if test "$(filtered_tags)" != ""; then echo "-- Test 2: Tag exists!!" & exit 1; else echo "-- Test 2: Tag is fine";fi
-	@if test "$(composer_version)" = ""; then echo "-- Test 3: composer.json has no version field!!" & exit 1; else echo "-- Test 3: composer.json is fine";fi
+	$(eval filtered_branches:= $(shell git branch --all | grep -E "(^|[ /])release/$(subst .,\.,${ONDEWO_SIP_VERSION})$$"))
+	$(eval filtered_tags:= $(shell git tag --list | grep -Fx "${ONDEWO_SIP_VERSION}"))
+	$(eval composer_version:= $(shell test -f composer.json && sed -n 's|^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\(.*\)".*|\1|p' composer.json | head -n 1))
+	@if test "$(filtered_branches)" != ""; then echo "-- Test 1: Branch exists!!" && exit 1; else echo "-- Test 1: Branch is fine";fi
+	@if test "$(filtered_tags)" != ""; then echo "-- Test 2: Tag exists!!" && exit 1; else echo "-- Test 2: Tag is fine";fi
+	@if test "$(composer_version)" != "${ONDEWO_SIP_VERSION}"; then \
+		echo "-- Test 3: composer.json is at '$(composer_version)', not ${ONDEWO_SIP_VERSION} - run 'make update_composer_version'!!"; exit 1; \
+	else echo "-- Test 3: composer.json is fine"; fi
