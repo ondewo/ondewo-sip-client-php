@@ -1,0 +1,92 @@
+name: release
+
+# Packagist accepts no upload. It serves the tree of a git TAG of this repository verbatim, so
+# "publishing" the PHP client is (1) the tag that `make create_release_tag` pushed and (2) a ping
+# that tells Packagist to crawl it now rather than at its next scheduled pass. This workflow is
+# that ping, gated on the tagged tree actually building and passing its tests.
+#
+# The package must have been submitted to Packagist ONCE by hand before this can ever succeed -
+# see README "Publishing to Packagist". Until then the update API answers 404 and the job fails,
+# which is the intended behaviour: a release must never report success for a package nobody can
+# install.
+on:
+  push:
+    tags:
+      # `make create_release_tag` pushes a BARE version tag (5.4.0), never v5.4.0.
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+# The ping is idempotent, but two runs for one tag would race Packagist's crawler for nothing.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Nothing here writes to the repository: the tag, the release branch and the GitHub release are
+# made by `make release` on the releasing developer's machine.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish ${{ github.ref_name }} to Packagist
+    runs-on: ubuntu-latest
+    steps:
+      # FIRST, before the checkout and before five minutes of composer downloads. An unset GitHub
+      # secret expands to the EMPTY string rather than failing the expression, so without this
+      # guard the run would sail through to `make publish` and only there notice. Failing here is
+      # loud, instant and says exactly which secret is missing.
+      - name: Require the Packagist credentials
+        env:
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
+        run: |
+          missing=0
+          if [ -z "$PACKAGIST_USERNAME" ]; then
+            echo "::error::the repository secret PACKAGIST_USERNAME is not set - it is the Packagist login name that owns ondewo/sip-client-php"
+            missing=1
+          fi
+          if [ -z "$PACKAGIST_API_TOKEN" ]; then
+            echo "::error::the repository secret PACKAGIST_API_TOKEN is not set - create one at https://packagist.org/profile/ ('Show API token')"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::refusing to run the release without credentials - see README 'Publishing to Packagist'"
+            exit 1
+          fi
+          echo "both Packagist secrets are present"
+
+      - uses: actions/checkout@v7
+
+      # Same toolchain as ci.yml's lower matrix leg: ext-grpc because every generated
+      # <Service>Client extends \Grpc\BaseStub, pcov because the coverage gate below needs a driver,
+      # and ext-bcmath because google/protobuf's pure-PHP JSON parser range-checks integers with
+      # bccomp() - `make coverage` below runs the very suite that exercises that path.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: grpc, bcmath
+          coverage: pcov
+          tools: composer:v2
+
+      # RELEASE_TAG is passed explicitly: a tag-triggered run always has github.ref_name, so the
+      # tag/version agreement cannot silently fall back to "HEAD is not a tag, not applicable".
+      - name: Packaging dry run (validates the tag against ONDEWO_SIP_VERSION)
+        run: make packagist_dry_run RELEASE_TAG=${{ github.ref_name }}
+
+      - name: Install the package dependencies
+        run: make install_dependencies
+
+      - name: Install the dev tool chain
+        run: make install_dev_tools
+
+      # Packagist serves whatever is at the tag. Prove the tag is good BEFORE asking it to crawl.
+      - name: Test with coverage (fails below 100% of the hand-written code)
+        run: make coverage
+
+      # `make publish` re-runs check_packagist_credentials and the dry run itself, so the release
+      # is self-contained rather than relying on the steps above having happened.
+      - name: Publish to Packagist
+        env:
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
+        run: make publish RELEASE_TAG=${{ github.ref_name }}

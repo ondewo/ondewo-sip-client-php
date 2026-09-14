@@ -54,4 +54,22 @@
   requirements, and the compiler image resolves the merged manifest with the network disabled, so one
   `require-dev` entry would break `make generate_ondewo_protos`.
 
+### Publishing
+
+* Published to [Packagist](https://packagist.org/packages/ondewo/sip-client-php) as `ondewo/sip-client-php`.
+  Packagist accepts no upload — it serves the tree of a git tag — so `make publish` validates the package and
+  then pings `https://packagist.org/api/update-package` with `PACKAGIST_USERNAME` + `PACKAGIST_API_TOKEN` to
+  have the new tag crawled. It is wired into `make release` after `push_to_gh`, and
+  `make run_release_with_devops` reads both credentials from `account_packagist.env` in the
+  `ondewo-devops-accounts` repository. The package still has to be **submitted once by hand**; see README
+  "Publishing to Packagist".
+* `make packagist_dry_run` is the credential-free half of that path and runs in CI on every push:
+  `composer validate`, `composer validate --strict` with the three deliberate warnings enumerated (the
+  `version` field and the two exact `google/protobuf` / `grpc/grpc` pins — anything new fails the build), the
+  agreement between `ONDEWO_SIP_VERSION`, `composer.json`, `RELEASE.md` and the git tag, and the exact update
+  payload the real publish POSTs.
+* `.github/workflows/release.yml` runs on a bare `X.Y.Z` tag push, re-runs the dry run and the full test
+  suite against the tagged tree and only then publishes, using GitHub secrets. A missing secret fails its
+  first step with an explicit `::error::` instead of posting an unauthenticated request.
+
 *****************

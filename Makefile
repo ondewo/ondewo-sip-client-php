@@ -35,7 +35,8 @@ export
 # 2 - Create Release Branch and push
 # 3 - Create Release Tag and push
 # 4 - GitHub Release
-# 5 - Packagist Release (the GitHub webhook pulls the new tag - there is no upload step)
+# 5 - Packagist Release (`make publish`: there is no upload step - Packagist serves the git tag,
+#     so the release only validates the package and pings the update API to have it crawled)
 
 ########################################################
 # 		Variables
@@ -99,6 +100,32 @@ GH_REPO="https://github.com/ondewo/ondewo-sip-client-php"
 DEVOPS_ACCOUNT_GIT="ondewo-devops-accounts"
 DEVOPS_ACCOUNT_DIR="./${DEVOPS_ACCOUNT_GIT}"
 
+# ---------------- PACKAGIST ----------------
+# Packagist has NO upload endpoint. It serves the tree of a git TAG of this very repository, so
+# "publishing" is the tag that `make create_release_tag` already pushes plus a ping that tells
+# Packagist to crawl it - `make publish`. The package itself has to be submitted ONCE by hand
+# before any of this works; see README "Publishing to Packagist".
+# Credentials: the Packagist login name and the token from https://packagist.org/profile/
+# ("Show API token"). Both are read at runtime from the ondewo-devops-accounts repo
+# (account_packagist.env) or from GitHub secrets - never committed.
+PACKAGIST_USERNAME?=ENTER_HERE_YOUR_PACKAGIST_USERNAME
+PACKAGIST_API_TOKEN?=ENTER_HERE_YOUR_PACKAGIST_API_TOKEN
+PACKAGIST_PACKAGE=ondewo/sip-client-php
+PACKAGIST_UPDATE_API=https://packagist.org/api/update-package
+# GH_REPO carries its double quotes as part of the VALUE (harmless in a recipe, where the shell
+# strips them again); the JSON payload below is assembled by make itself, so they come off here.
+PACKAGIST_REPOSITORY_URL=$(subst ",,$(GH_REPO))
+# The request body of the update API. It carries no credentials - those travel as query
+# parameters - which is why `make packagist_dry_run` can verify the exact payload the real
+# publish sends without holding a single secret.
+PACKAGIST_UPDATE_PAYLOAD={"repository":{"url":"$(PACKAGIST_REPOSITORY_URL)"}}
+
+# The release tag under verification. Left EMPTY locally, where `check_version_agreement` derives
+# it from HEAD instead (and finds none on an ordinary branch checkout); the release workflow sets
+# it to ${{ github.ref_name }}, which a tag-triggered run always has, so the tag/version agreement
+# can never be skipped there.
+RELEASE_TAG?=
+
 # `make` with no target prints the help listing.
 .DEFAULT_GOAL := help
 
@@ -135,6 +162,9 @@ TEST: ## Prints some important variables
 	@echo "Compiler Pin: \t\t ${ONDEWO_PROTO_COMPILER_GIT_BRANCH}"
 	@echo "Compiler Image: \t ${PROTO_COMPILER_IMAGE}"
 	@echo "GH Token: \t\t $(if $(filter-out ENTER_YOUR_TOKEN_HERE,$(GITHUB_GH_TOKEN)),<set>,<unset>)"
+	@echo "Packagist Package: \t ${PACKAGIST_PACKAGE}"
+	@echo "Packagist User: \t $(if $(filter-out ENTER_HERE_YOUR_PACKAGIST_USERNAME,$(PACKAGIST_USERNAME)),<set>,<unset>)"
+	@echo "Packagist Token: \t $(if $(filter-out ENTER_HERE_YOUR_PACKAGIST_API_TOKEN,$(PACKAGIST_API_TOKEN)),<set>,<unset>)"
 	@echo "Release Notes: \n \n$(CURRENT_RELEASE_NOTES)"
 
 ########################################################
@@ -205,7 +235,7 @@ clean: ## Remove the composer artifacts, the dev tools and the generated stubs
 ########################################################
 #		Test
 
-test: composer_validate lint_php check_build coverage ## Validate the manifest, syntax-check hand-written PHP, check the stubs against the api submodule and run the covered PHPUnit suite
+test: composer_validate packagist_dry_run lint_php check_build coverage ## Validate the manifest, verify the packaging path, syntax-check hand-written PHP, check the stubs against the api submodule and run the covered PHPUnit suite
 
 # What .github/workflows/ci.yml runs, verbatim. It deliberately leaves `check_build` out: that
 # target compares src/ against the ondewo-sip-api submodule, and CI checks out NO submodules -
@@ -213,12 +243,14 @@ test: composer_validate lint_php check_build coverage ## Validate the manifest, 
 # its tests. tests/Generated/GeneratedCodeTest.php carries the submodule-free half of the same
 # assertion (every generated class loads, every descriptor initialises, every expected service
 # client exists) and fails - never skips - when src/ is missing.
-ci: composer_validate lint_php coverage ## Run the CI gate locally (no submodules, no docker)
+ci: composer_validate packagist_dry_run lint_php coverage ## Run the CI gate locally (no submodules, no docker)
 	@echo "$(GREEN)[SUCCESS]$(NC) CI gate passed"
 
 composer_validate: ## Validate composer.json
 # Deliberately NOT --strict: the `version` field the release targets bump is a strict-mode
-# warning that --strict turns into a failure (rc 2), exactly as in the compiler image.
+# warning that --strict turns into a failure (rc 1), exactly as in the compiler image.
+# `composer_validate_strict` below runs --strict anyway, with the deliberate warnings enumerated,
+# so a NEW warning still fails the build.
 	composer validate --no-check-publish --no-interaction
 
 lint_php: ## Syntax-check every hand-written PHP file with `php -l` (src/ is generated and skipped)
@@ -313,7 +345,11 @@ release: ## Automate the entire release process
 	make create_release_branch
 	make create_release_tag
 	make push_to_gh
-	@echo "$(GREEN)[SUCCESS]$(NC) Release Finished - Packagist picks the new tag up from the GitHub webhook"
+# The PHP equivalent of `make push_to_pypi_via_docker` / `make publish_npm_via_docker`: nothing is
+# uploaded, the tag pushed above IS the artifact, and this only tells Packagist to crawl it. It
+# has to run AFTER create_release_tag - Packagist crawls what is on GitHub at that moment.
+	make publish
+	@echo "$(GREEN)[SUCCESS]$(NC) Release Finished - ${PACKAGIST_PACKAGE} ${ONDEWO_SIP_VERSION} is on Packagist"
 
 create_release_branch: ## Create Release Branch and push it to origin
 	git checkout -b "release/${ONDEWO_SIP_VERSION}"
@@ -339,6 +375,134 @@ build_gh_release: ## Generate Github Release with CLI
 	gh release create --repo $(GH_REPO) "$(ONDEWO_SIP_VERSION)" -n "$(CURRENT_RELEASE_NOTES)" -t "Release ${ONDEWO_SIP_VERSION}"
 
 ########################################################
+#		PACKAGIST
+
+# The equivalent of `twine upload` (python) or `npm publish` (typescript) - except that Packagist
+# accepts no artifact at all. It reads the git tag straight off GitHub, so the only thing left to
+# do is (1) prove the tagged tree is a publishable composer package and (2) ask Packagist to crawl
+# it now instead of at its next scheduled pass.
+# check_packagist_credentials runs FIRST so a missing token fails in a second rather than after
+# the whole validation pass.
+publish: check_packagist_credentials packagist_dry_run packagist_update ## Validate the package and tell Packagist to crawl the new tag (the PHP equivalent of an upload)
+	@echo "$(GREEN)[SUCCESS]$(NC) ${PACKAGIST_PACKAGE} ${ONDEWO_SIP_VERSION} published - https://packagist.org/packages/${PACKAGIST_PACKAGE}"
+
+# Everything `publish` can check WITHOUT a credential. Wired into `make ci` (and therefore into
+# .github/workflows/ci.yml) so the packaging path is exercised on every single push, not for the
+# first time on release day.
+packagist_dry_run: composer_validate composer_validate_strict check_version_agreement check_packagist_payload ## Credential-free verification of the whole packaging path (runs in CI on every push)
+	@echo "$(GREEN)[SUCCESS]$(NC) Packagist dry run passed - ${PACKAGIST_PACKAGE} ${ONDEWO_SIP_VERSION} is publishable"
+
+# `composer validate --strict` reports exactly three warnings here, all of them deliberate and
+# permanent:
+#   * "The version field is present"        - composer.json's `version` is what
+#     `make update_composer_version` writes and what `spc` (Test 3) refuses to release without.
+#     Packagist derives the version from the TAG, but the fleet keeps the field so the version is
+#     greppable in the tree; `check_version_agreement` below is what keeps the two from drifting.
+#   * the two exact version constraints     - google/protobuf and grpc/grpc MUST be pinned to the
+#     exact versions the compiler image ships (README rule 2): the image resolves the merged
+#     manifest with the network OFF, from a cache warmed at image-build time, so a range that
+#     resolves to anything else takes `make generate_ondewo_protos` down.
+# So --strict can never be run bare here (it exits 1 on a warning). This target runs it anyway and
+# fails on any warning that is NOT one of those three - a newly introduced warning is a real
+# regression and would otherwise drown in `composer validate`'s output.
+# --no-check-lock: composer.lock is deliberately NOT committed here (see .gitignore - this is a
+# library, and the compiler image writes a --no-dev lock of its own). CI validates before it ever
+# installs, so there is no lock to check; a developer who runs this after `make install_dependencies`
+# would otherwise fail on a purely local artifact that is never published.
+composer_validate_strict: ## Run `composer validate --strict` and fail on any warning beyond the three deliberate ones
+	@mkdir -p build
+	@composer validate --strict --no-check-lock --no-ansi --no-interaction > build/composer-validate-strict.log 2>&1 || true
+	@cat build/composer-validate-strict.log
+	@grep -q "is valid" build/composer-validate-strict.log \
+		|| { echo "$(RED)[ERROR]$(NC) composer.json is INVALID - see the output above"; exit 1; }
+	@grep '^- ' build/composer-validate-strict.log \
+		| grep -v -e "The version field is present" \
+		          -e "require.google/protobuf : exact version constraints" \
+		          -e "require.grpc/grpc : exact version constraints" \
+		> build/composer-validate-strict.unexpected || true
+	@if [ -s build/composer-validate-strict.unexpected ]; then \
+		echo "$(RED)[ERROR]$(NC) composer validate --strict reported warnings beyond the three deliberate ones:"; \
+		cat build/composer-validate-strict.unexpected; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)[SUCCESS]$(NC) composer validate --strict: only the three deliberate warnings"
+
+# Packagist resolves a version from the TAG NAME, while composer.json here also carries an
+# explicit `version`. When those two disagree Packagist publishes the field's value under the
+# tag's name - a release that installs as a version nobody tagged. This is the agreement check the
+# fleet requires, and it also refuses a version with no RELEASE.md entry, because
+# CURRENT_RELEASE_NOTES would then slice out nothing and `gh release create` would ship empty
+# notes without complaining.
+check_version_agreement: ## Fail unless ONDEWO_SIP_VERSION, composer.json, RELEASE.md and (when HEAD is a tag) the git tag all agree
+	@name=`php -r 'echo json_decode(file_get_contents("composer.json"), true)["name"] ?? "";'`; \
+	version=`php -r 'echo json_decode(file_get_contents("composer.json"), true)["version"] ?? "";'`; \
+	if [ "$$name" != "${PACKAGIST_PACKAGE}" ]; then \
+		echo "$(RED)[ERROR]$(NC) composer.json name is '$$name' but the Packagist package is '${PACKAGIST_PACKAGE}'"; exit 1; fi; \
+	if [ "$$version" != "${ONDEWO_SIP_VERSION}" ]; then \
+		echo "$(RED)[ERROR]$(NC) composer.json version is '$$version' but ONDEWO_SIP_VERSION is '${ONDEWO_SIP_VERSION}' - run 'make update_composer_version'"; exit 1; fi; \
+	grep -qF "Release ONDEWO SIP PHP Client ${ONDEWO_SIP_VERSION}" RELEASE.md \
+		|| { echo "$(RED)[ERROR]$(NC) RELEASE.md has no '## Release ONDEWO SIP PHP Client ${ONDEWO_SIP_VERSION}' entry - the GitHub release would ship empty notes"; exit 1; }; \
+	tag="${RELEASE_TAG}"; \
+	[ -n "$$tag" ] || tag=`git describe --exact-match --tags HEAD 2>/dev/null || true`; \
+	if [ -z "$$tag" ]; then \
+		echo "$(BLUE)[INFO]$(NC) HEAD is not a release tag - tag agreement not applicable (set RELEASE_TAG to force the check)"; \
+	elif [ "$$tag" != "${ONDEWO_SIP_VERSION}" ]; then \
+		echo "$(RED)[ERROR]$(NC) git tag '$$tag' does not match ONDEWO_SIP_VERSION '${ONDEWO_SIP_VERSION}' - Packagist would publish the tag under the wrong version"; exit 1; \
+	else \
+		echo "$(BLUE)[INFO]$(NC) git tag '$$tag' agrees with ONDEWO_SIP_VERSION"; \
+	fi
+	@echo "$(GREEN)[SUCCESS]$(NC) ${PACKAGIST_PACKAGE} ${ONDEWO_SIP_VERSION}: version fields agree"
+
+# The update API identifies the package by its VCS url, NOT by its composer name: ping the wrong
+# url with valid credentials and Packagist answers 200 for a package that is not this one. So the
+# payload is checked against composer.json's own support.source, which is what was submitted.
+check_packagist_payload: ## Fail unless the Packagist update payload is well-formed JSON pointing at this repository
+	@mkdir -p build
+	@printf '%s\n' '$(PACKAGIST_UPDATE_PAYLOAD)' > build/packagist-update-payload.json
+	@url=`php -r 'echo json_decode(file_get_contents("build/packagist-update-payload.json"), true)["repository"]["url"] ?? "";'`; \
+	source=`php -r 'echo json_decode(file_get_contents("composer.json"), true)["support"]["source"] ?? "";'`; \
+	if [ -z "$$url" ]; then \
+		echo "$(RED)[ERROR]$(NC) the update payload is not valid JSON or carries no repository.url:"; \
+		cat build/packagist-update-payload.json; exit 1; fi; \
+	if [ "$$url" != "$$source" ]; then \
+		echo "$(RED)[ERROR]$(NC) the update payload points at '$$url' but composer.json support.source is '$$source'"; exit 1; fi
+	@echo "$(GREEN)[SUCCESS]$(NC) Packagist update payload points at ${PACKAGIST_REPOSITORY_URL}"
+
+# Never prints either credential, only whether it is usable. Both the placeholder AND the empty
+# string have to be rejected: an unset GitHub secret expands to the EMPTY string, so a check that
+# only looked for the placeholder would let the release workflow post an unauthenticated ping and
+# report success for a package that was never crawled.
+check_packagist_credentials: ## Fail unless PACKAGIST_USERNAME and PACKAGIST_API_TOKEN are set
+	@if [ -z "$${PACKAGIST_USERNAME}" ] || [ "$${PACKAGIST_USERNAME}" = "ENTER_HERE_YOUR_PACKAGIST_USERNAME" ]; then \
+		echo "$(RED)[ERROR]$(NC) PACKAGIST_USERNAME is not set - it is the Packagist login name (devops-accounts: account_packagist.env, CI: the PACKAGIST_USERNAME secret)"; exit 1; fi
+	@if [ -z "$${PACKAGIST_API_TOKEN}" ] || [ "$${PACKAGIST_API_TOKEN}" = "ENTER_HERE_YOUR_PACKAGIST_API_TOKEN" ]; then \
+		echo "$(RED)[ERROR]$(NC) PACKAGIST_API_TOKEN is not set - create one at https://packagist.org/profile/ 'Show API token' (devops-accounts: account_packagist.env, CI: the PACKAGIST_API_TOKEN secret)"; exit 1; fi
+	@echo "$(GREEN)[SUCCESS]$(NC) Packagist credentials are set"
+
+# Prefixed with @ so neither credential reaches the build log, and written against the EXPORTED
+# shell variables (this Makefile exports everything, see line 1) rather than against
+# $(PACKAGIST_API_TOKEN): should the @ ever be dropped, make then echoes the variable NAME instead
+# of the token. --fail is deliberately NOT used - the http code is inspected by hand so a 403 is
+# reported as "bad credentials" instead of curl's bare exit 22.
+packagist_update: ## Ping the Packagist update API so it crawls the tags of this repository
+	@mkdir -p build
+	@echo "$(BLUE)[INFO]$(NC) Asking Packagist to crawl ${PACKAGIST_REPOSITORY_URL} ..."
+	@code=`curl --silent --show-error --location \
+		--output build/packagist-update-response.json --write-out '%{http_code}' \
+		-X POST -H 'Content-Type: application/json' \
+		-d '$(PACKAGIST_UPDATE_PAYLOAD)' \
+		"${PACKAGIST_UPDATE_API}?username=$${PACKAGIST_USERNAME}&apiToken=$${PACKAGIST_API_TOKEN}"`; \
+	echo "$(BLUE)[INFO]$(NC) Packagist answered HTTP $$code"; \
+	cat build/packagist-update-response.json; echo; \
+	if [ "$$code" != "200" ]; then \
+		echo "$(RED)[ERROR]$(NC) Packagist rejected the update (HTTP $$code). 40x means the credentials are wrong or ${PACKAGIST_PACKAGE} has never been submitted - see README 'Publishing to Packagist'"; \
+		exit 1; \
+	fi
+	@grep -q '"status" *: *"success"' build/packagist-update-response.json \
+		|| { echo "$(RED)[ERROR]$(NC) Packagist returned HTTP 200 without status=success - see the response above"; exit 1; }
+	@echo "$(GREEN)[SUCCESS]$(NC) Packagist is crawling ${PACKAGIST_REPOSITORY_URL}"
+
+########################################################
 #		DEVOPS-ACCOUNTS
 
 ondewo_release: spc clone_devops_accounts run_release_with_devops ## Release with credentials from devops-accounts repo
@@ -349,7 +513,7 @@ clone_devops_accounts: ## Clones devops-accounts repo
 	git clone git@bitbucket.org:ondewo/${DEVOPS_ACCOUNT_GIT}.git
 
 run_release_with_devops: ## Gets Credentials from devops-repo and run release command with them
-	$(eval info:= $(shell cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH))
+	$(eval info:= $(shell cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH & cat ${DEVOPS_ACCOUNT_DIR}/account_packagist.env | grep PACKAGIST_USERNAME & cat ${DEVOPS_ACCOUNT_DIR}/account_packagist.env | grep PACKAGIST_API_TOKEN))
 	@make release $(info)
 
 spc: ## Checks if the Release Branch, Tag and composer.json version already exist

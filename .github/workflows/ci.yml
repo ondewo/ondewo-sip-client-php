@@ -65,9 +65,18 @@ jobs:
           composer --version
 
       # Deliberately NOT --strict: the `version` field the release targets bump is a
-      # strict-mode warning that --strict turns into a failure (rc 2).
+      # strict-mode warning that --strict turns into a failure (rc 1). The dry run below runs
+      # --strict anyway, with the deliberate warnings enumerated.
       - name: Validate composer.json
         run: make composer_validate
+
+      # The credential-free half of `make publish`: composer validate --strict with the three
+      # deliberate warnings enumerated, the agreement between ONDEWO_SIP_VERSION, composer.json,
+      # RELEASE.md and (on a tag) the tag itself, and the exact update payload the real publish
+      # POSTs. It holds no secret and touches no network, so the packaging path is exercised on
+      # every push instead of for the first time on release day.
+      - name: Packagist publishing dry run (no credentials)
+        run: make packagist_dry_run
 
       - name: Syntax-check the hand-written PHP sources
         run: make lint_php
