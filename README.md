@@ -116,7 +116,7 @@ make setup_developer_environment_locally
 ```
 .
 ├── ondewo-sip-api          <----- submodule: the .proto definitions (ondewo/ = the services, google/ = imports)
-├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.0
+├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.1
 ├── auth                    <----- HAND-WRITTEN sources (bearer token authenticator)
 ├── src                     <----- GENERATED stubs, committed - compiler-owned, wiped on every generation run
 │   ├── GPBMetadata         <----- descriptor bootstrap, one class per .proto
