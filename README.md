@@ -368,6 +368,7 @@ What the suite actually asserts:
 | `tests/Auth/BearerTokenAuthenticatorTest.php` | Any regression in the hand-written auth surface |
 | `tests/Auth/ClientConfigTest.php` | Half a client identity reaching ext-grpc, an identity dropped on a plaintext channel, a PEM or key in a message or rendering, a wrong target or channel default |
 | `tests/Tls/MutualTlsHandshakeTest.php` | A broken real handshake: TLS, mutual TLS, CRLF PEMs and `[::1]` must connect; a missing or foreign client certificate, a wrong CA and the system roots against the test CA must fail as `UNAVAILABLE` |
+| `tests/ReleaseNotesTest.php` | A `RELEASE.md` heading or separator the release-notes slice would miss, i.e. a GitHub release with empty notes |
 
 The handshake test generates its PKI with ext-openssl at test time and needs `python3` with `grpcio` for its
 server (`tests/Tls/tls_test_server.py`; PHP has no gRPC server): `pip install grpcio`, or point
