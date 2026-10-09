@@ -107,6 +107,15 @@ jobs:
       - name: Install the dev tool chain
         run: make install_dev_tools
 
+      # PHP has no gRPC server: tests/Tls/MutualTlsHandshakeTest.php runs its real TLS and mutual-TLS
+      # handshakes against tests/Tls/tls_test_server.py, a python grpcio server it starts itself.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install grpcio for the TLS handshake test server
+        run: python -m pip install grpcio==1.82.0
+
       # Loads every generated class, initialises every proto descriptor, round-trips messages
       # through the wire format, constructs the service stubs - and then fails if the hand-written
       # auth/ sources drop below 100% line coverage.

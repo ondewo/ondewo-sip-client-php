@@ -6,6 +6,7 @@
   "require": {
     "php": ">=8.1.0",
     "phpunit/phpunit": "^10.5 || ^11.5",
+    "psr/log": "^3.0",
     "rregeer/phpunit-coverage-check": "^0.3.1"
   },
   "config": {

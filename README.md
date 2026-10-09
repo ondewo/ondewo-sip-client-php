@@ -117,7 +117,7 @@ make setup_developer_environment_locally
 .
 ├── ondewo-sip-api          <----- submodule: the .proto definitions (ondewo/ = the services, google/ = imports)
 ├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.1
-├── auth                    <----- HAND-WRITTEN sources (bearer token authenticator)
+├── auth                    <----- HAND-WRITTEN sources (bearer token authenticator, ClientConfig: TLS / mutual TLS)
 ├── src                     <----- GENERATED stubs, committed - compiler-owned, wiped on every generation run
 │   ├── GPBMetadata         <----- descriptor bootstrap, one class per .proto
 │   └── Ondewo              <----- messages, enums and the <Service>Client stubs
@@ -223,6 +223,129 @@ echo $response->serializeToJsonString(), PHP_EOL;
 For an insecure channel against a local server, call `$auth->channelOptions()` with no argument — `null`
 credentials is exactly what `ChannelCredentials::createInsecure()` returns.
 
+## TLS, mutual TLS and certificates
+
+gRPC encrypts with **TLS**. "SSL" in names such as `\Grpc\ChannelCredentials::createSsl()` or
+`grpc.ssl_target_name_override` is legacy naming; no SSL protocol version is ever negotiated.
+
+`Ondewo\Sip\Auth\ClientConfig` (hand-written, in `auth/`) builds the target and the `$opts` array of every
+generated `<Service>Client`, with the same TLS rules and channel defaults as the other ONDEWO SDKs:
+
+| Mode                           | `ClientConfig` arguments                                         |
+|--------------------------------|------------------------------------------------------------------|
+| Plaintext (not for production) | `useSecureChannel: false`                                        |
+| TLS, system trust store        | none (`grpcCert` empty)                                          |
+| TLS, custom CA                 | `grpcCert` = PEM of the CA that signed the server certificate    |
+| Mutual TLS                     | `grpcCert` plus `grpcClientCert` and `grpcClientKey`             |
+
+```php
+<?php
+
+use Ondewo\Sip\Auth\BearerTokenAuthenticator;
+use Ondewo\Sip\Auth\ClientConfig;
+use Ondewo\Sip\SipClient;
+
+$config = new ClientConfig(
+    host: '10.0.0.5',
+    port: 50051,
+    grpcCert: file_get_contents('certs/ca.pem'),
+    grpcClientCert: file_get_contents('certs/client.pem'), // leave both out for server-authenticated TLS
+    grpcClientKey: file_get_contents('certs/client.key'),
+);
+$client = new SipClient($config->target(), $config->channelOptions([
+    'update_metadata' => new BearerTokenAuthenticator(getenv('ONDEWO_TOKEN')),
+    'grpc.ssl_target_name_override' => 'sip.example.internal', // only when connecting by IP
+]));
+```
+
+Rules the code enforces:
+
+* The three certificate fields hold **PEM content**, **not file paths**. Read the files yourself
+  (`file_get_contents()` returns `false` for a missing file, which `declare(strict_types=1)` code rejects with a
+  `TypeError`). CRLF line endings are fine.
+* `grpcClientCert` and `grpcClientKey` go together: setting only one throws `InvalidArgumentException` when the
+  config is built, and `channelCredentials()` repeats the check before anything reaches ext-grpc. This is not
+  pedantry: grpc-core **aborts the whole PHP process** on a private key without its certificate and silently
+  connects **without** a client identity on a certificate without its key. Empty strings on both mean
+  server-authenticated TLS; an empty `grpcCert` means the platform's default trust store.
+* `useSecureChannel: false` with a client certificate throws `InvalidArgumentException` instead of silently
+  dropping the identity. A plaintext channel is allowed, but logs a warning naming `host:port`: on the PSR-3
+  logger passed to `channelOptions(logger: ...)` / `channelCredentials($logger)`, otherwise through
+  `error_log()`. The SDK never configures your logging.
+* `channelOptions()` refuses a `credentials` option of its own: TLS material goes through `ClientConfig`, where it
+  is checked. Every other option (`update_metadata`, any `grpc.*` channel argument) is passed through and wins
+  over the defaults.
+* No exception message renders a PEM or the config: they name the field and `host:port`.
+* `target()` brackets a bare IPv6 literal (`::1` becomes `[::1]:50051`) and leaves `[...]` or `scheme:` hosts alone.
+* The server certificate is verified against `grpcCert`, and the host you connect to must match one of the
+  certificate's subject alternative names (SAN). When you connect by IP and the certificate has no IP SAN, tell
+  gRPC which name to check with the channel option `grpc.ssl_target_name_override`.
+
+Channel defaults (`ClientConfig::DEFAULT_CHANNEL_OPTIONS`, identical to ondewo-client-utils-python): message
+size limit 2³¹-1 bytes both ways; `grpc.keepalive_time_ms` 30000 with `grpc.keepalive_permit_without_calls` 0 and
+`grpc.http2.max_pings_without_data` 2 (pings only during calls; a server answers endless pings on a silent
+stream with GOAWAY `too_many_pings`); `grpc.keepalive_timeout_ms` and `grpc.http2.ping_timeout_ms` 20000 (a dead
+connection is detected in about 40 s instead of 85 s); `grpc.max_reconnect_backoff_ms` 5000 (gRPC's default is
+120 s). **Gap:** the Python SDK also installs a per-method retry policy (idempotent reads only); this PHP SDK
+installs none, so only gRPC's transparent retries (a request that provably never reached the server) apply.
+
+### A test PKI with openssl
+
+A CA, a server certificate with SANs, and a client certificate with the `clientAuth` extended key usage. For
+tests only: the keys are unencrypted.
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 365 \
+  -subj "/CN=Test CA" -keyout ca.key -out ca.pem
+
+printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n' > server.ext
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -subj "/CN=localhost" -keyout server.key -out server.csr
+openssl x509 -req -in server.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 365 \
+  -extfile server.ext -out server.pem
+
+printf 'extendedKeyUsage=clientAuth\n' > client.ext
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -subj "/CN=my-client" -keyout client.key -out client.csr
+openssl x509 -req -in client.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 365 \
+  -extfile client.ext -out client.pem
+
+chmod 600 *.key
+openssl verify -CAfile ca.pem server.pem client.pem
+```
+
+The client then uses `ca.pem` / `client.pem` / `client.key`; a server that requires client certificates uses
+`server.pem` / `server.key` and trusts `ca.pem` for its clients.
+
+### TLS security notes
+
+* `(string) $config`, `var_dump()` / `print_r()` (`__debugInfo()`) and `json_encode()` (`jsonSerialize()`) show a
+  non-empty `grpcClientKey` as `***REDACTED***` (an empty one stays empty). That JSON is for logs and cannot be
+  read back; keep the key in a file or secret store and pass it to the constructor at startup.
+* `serialize()`, `var_export()` and an `(array)` cast are **not** redacted: they carry the private key in clear
+  text. Do not log them, and treat anything serialized from a config as a secret (file mode `0600`, never
+  committed).
+* The key parameter is `#[\SensitiveParameter]`: from PHP 8.2 on, stack traces show it as a
+  `SensitiveParameterValue`. PHP 8.1 ignores the attribute; there, set `zend.exception_ignore_args = On`
+  (the `php.ini-production` default) to keep arguments out of traces.
+
+### TLS troubleshooting
+
+A failed handshake ends the call with `$status->code === \Grpc\STATUS_UNAVAILABLE` (14); the cause is in
+`$status->details`:
+
+* **`CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`** (inside "Ssl handshake failed"):
+  `grpcCert` is not the CA that issued the server certificate (or is empty, so the system trust store is used),
+  or the server does not send its intermediate certificates.
+* **`Hostname Verification Check failed`** (older gRPC: `Peer name <host> is not in peer certificate`): the host
+  you connect to is not in the server certificate's SAN. Connect by a name in the SAN, add the SAN, or set
+  `grpc.ssl_target_name_override`.
+* **`Socket closed`** against a server that requires client certificates: no client certificate was presented, or
+  one the server's CA did not issue. The server log names the reason (e.g. `PEER_DID_NOT_RETURN_A_CERTIFICATE`).
+  Set `grpcClientCert` / `grpcClientKey`.
+* **`empty address list`**, with `Could not load any root certificate` in the gRPC log: `grpcCert` holds something
+  that is not PEM, typically a file path. Pass `file_get_contents(...)` instead.
+
 ## Testing
 
 ```bash
@@ -243,6 +366,12 @@ What the suite actually asserts:
 | `tests/Generated/MessageSerializationTest.php` | A field that never reaches the wire, a sub-message that loses its presence bit, a moved enum zero constant, a broken JSON mapping (including the integer path, which needs `ext-bcmath`) |
 | `tests/Generated/ServiceClientTest.php` | A stub that cannot be constructed, a missing or re-shaped RPC method, a unary RPC that silently became a streaming one |
 | `tests/Auth/BearerTokenAuthenticatorTest.php` | Any regression in the hand-written auth surface |
+| `tests/Auth/ClientConfigTest.php` | Half a client identity reaching ext-grpc, an identity dropped on a plaintext channel, a PEM or key in a message or rendering, a wrong target or channel default |
+| `tests/Tls/MutualTlsHandshakeTest.php` | A broken real handshake: TLS, mutual TLS, CRLF PEMs and `[::1]` must connect; a missing or foreign client certificate, a wrong CA and the system roots against the test CA must fail as `UNAVAILABLE` |
+
+The handshake test generates its PKI with ext-openssl at test time and needs `python3` with `grpcio` for its
+server (`tests/Tls/tls_test_server.py`; PHP has no gRPC server): `pip install grpcio`, or point
+`ONDEWO_TLS_TEST_PYTHON` at an interpreter that has it. CI installs it.
 
 Coverage is reported for the **hand-written** code only — `phpunit.xml.dist`'s `<source>` is `auth/`, and
 `make coverage` fails below `COVERAGE_MIN` (100%). The generated stubs are machine output and are deliberately
