@@ -2,7 +2,13 @@
   "name": "ondewo/sip-client-php",
   "description": "ONDEWO SIP (SIP Telephony) gRPC client for PHP, generated from the ondewo-sip-api protocol buffer definitions",
   "type": "library",
-  "keywords": ["ondewo", "sip", "grpc", "protobuf", "client"],
+  "keywords": [
+    "ondewo",
+    "sip",
+    "grpc",
+    "protobuf",
+    "client"
+  ],
   "homepage": "https://github.com/ondewo/ondewo-sip-client-php",
   "license": "Apache-2.0",
   "authors": [
@@ -26,7 +32,10 @@
     "psr/log": "To receive ClientConfig's insecure-channel warning on a PSR-3 logger instead of error_log()"
   },
   "autoload": {
-    "classmap": ["src/"],
+    "classmap": [
+      "auth/",
+      "src/"
+    ],
     "psr-4": {
       "Ondewo\\Sip\\Auth\\": "auth/"
     }
