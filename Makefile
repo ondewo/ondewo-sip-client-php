@@ -344,10 +344,11 @@ release: ## Automate the entire release process
 # auth/ is the hand-written surface (bearer credentials, Keycloak token provider). It is
 # top-level and NOT covered by `git add src`, so leaving it out means a fix written there is
 # published from the tag without ever reaching the repository.
-	-git add auth
-# tests/, tools/ and examples/ are not part of the published classmap, but a regression test
-# written alongside a fix must reach the repository or CI never runs it.
-	-git add tests examples tools phpunit.xml.dist
+	git add auth
+# tests/ and tools/ are not part of the published classmap, but a regression test written alongside
+# a fix must reach the repository or CI never runs it. Every path here exists, so no leading `-`:
+# one missing pathspec makes git reject the WHOLE add, which the `-` used to hide.
+	git add tests tools phpunit.xml.dist
 	git add ${ONDEWO_PROTO_COMPILER_DIR}
 	git add ${ONDEWO_SIP_API_DIR}
 	git status
