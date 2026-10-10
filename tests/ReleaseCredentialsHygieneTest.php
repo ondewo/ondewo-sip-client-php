@@ -98,6 +98,39 @@ final class ReleaseCredentialsHygieneTest extends TestCase
         self::assertSame([], $leaks, 'move the secret to the step\'s env: and reference it as $NAME');
     }
 
+    public function testEveryPathTheReleaseRecipeAddsExists(): void
+    {
+        $makefile = self::read('Makefile');
+        $parts = explode("\nrelease:", $makefile, 2);
+        self::assertCount(2, $parts, 'release is missing');
+        $recipe = explode("\n\n", $parts[1], 2)[0];
+
+        preg_match_all('/^\t(-?)git add (.+)$/m', $recipe, $adds, PREG_SET_ORDER);
+        self::assertNotEmpty($adds, 'the release recipe adds nothing');
+
+        preg_match_all('/^([A-Z0-9_]+)\s*:?=\s*(\S+)\s*$/m', $makefile, $assignments, PREG_SET_ORDER);
+        $variables = [];
+        foreach ($assignments as [, $name, $value]) {
+            $variables['${' . $name . '}'] = $value;
+            $variables['$(' . $name . ')'] = $value;
+        }
+
+        $missing = [];
+        foreach ($adds as [$line, $ignored, $paths]) {
+            // git rejects the WHOLE add when one pathspec matches nothing, and a leading `-` hides that.
+            self::assertSame('', $ignored, 'a failing git add must stop the release: ' . trim($line));
+            foreach (preg_split('/\s+/', trim($paths)) as $path) {
+                $path = strtr($path, $variables);
+                self::assertStringNotContainsString('$', $path, 'unresolved variable in: ' . trim($line));
+                if (!file_exists(dirname(__DIR__) . '/' . $path)) {
+                    $missing[] = $path;
+                }
+            }
+        }
+
+        self::assertSame([], $missing, 'the release recipe git-adds paths that do not exist');
+    }
+
     /**
      * @return array<int, string> recipe lines keyed by their 1-based line number in the Makefile
      */
