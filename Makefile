@@ -44,12 +44,12 @@ export
 
 # MUST BE THE SAME AS THE API in Major and Minor Version Number
 # example: API 2.9.0 --> Client 2.9.X
-ONDEWO_SIP_VERSION=5.4.1
+ONDEWO_SIP_VERSION=5.5.0
 
 # Submodule pins. Both are checked out by `make checkout_defined_submodule_versions`, so the
 # stubs of a release are always reproducible from the two commits recorded here.
-ONDEWO_SIP_API_GIT_BRANCH=tags/5.4.0
-ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.2
+ONDEWO_SIP_API_GIT_BRANCH=tags/5.5.0
+ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.5
 
 # Submodule directories - both sit at the repository root, see .gitmodules
 ONDEWO_SIP_API_DIR=ondewo-sip-api
@@ -267,11 +267,12 @@ check_build: ## Fails if any .proto of the API submodule has no generated PHP co
 		|| { echo "$(RED)[ERROR]$(NC) src/ is missing - run 'make generate_ondewo_protos' first"; exit 1; }
 	@test -d ${ONDEWO_SIP_API_DIR}/${PROTOS_TARGET_SUBDIR} \
 		|| { echo "$(RED)[ERROR]$(NC) '${ONDEWO_SIP_API_DIR}/${PROTOS_TARGET_SUBDIR}' not found - run 'make update_submodules' first"; exit 1; }
-# protoc's php generator names a file after the UpperCamel form of the .proto basename
-# (ai_services.proto -> AiServices.php), so the basename is camel-cased before it is looked up.
+# protoc's php generator names a file after the UpperCamel form of the .proto basename, split on
+# '_' AND '-' (ai_services.proto -> AiServices.php, speech-to-text.proto -> SpeechToText.php), so
+# the basename is camel-cased the same way before it is looked up.
 	@find ${ONDEWO_SIP_API_DIR}/${PROTOS_TARGET_SUBDIR} -type f -name '*.proto' \
 		| while IFS= read -r proto; do \
-			camel=`basename "$$proto" .proto | awk -F'_' '{s=""; for(i=1;i<=NF;i++){s = s toupper(substr($$i,1,1)) substr($$i,2)}; print s}'`; \
+			camel=`basename "$$proto" .proto | awk -F'[_-]' '{s=""; for(i=1;i<=NF;i++){s = s toupper(substr($$i,1,1)) substr($$i,2)}; print s}'`; \
 			find src -type f -name "$$camel.php" | grep -q . \
 				|| { echo "$(RED)[ERROR]$(NC) No PHP code generated for $$proto (expected a $$camel.php)"; exit 1; }; \
 		done || exit 1

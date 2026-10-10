@@ -146,6 +146,19 @@ class StatusType
      * Generated from protobuf enum <code>NO_ONGOING_CALL = 21;</code>
      */
     const NO_ONGOING_CALL = 21;
+    /**
+     * Answering machine detection decided the callee of the ongoing outgoing call is not a person to talk to.
+     * NOT terminal: the call is still up when this status is set. <code>amd_result.verdict</code> tells an
+     * answering machine, a fax, a network announcement, ... apart. The call then ends as
+     * <code>OUTGOING_CALL_FINISHED</code> carrying <code>amd_result</code> and exactly one of the descriptions
+     * <code>Answering machine detected with hang up</code>,
+     * <code>Answering machine detected with left voice message and hang up</code>,
+     * <code>Answering machine detected, call ended by the answering machine</code> or
+     * <code>Answering machine detected, call ended by the answering machine after leaving a voice message</code>
+     *
+     * Generated from protobuf enum <code>OUTGOING_CALL_ANSWERING_MACHINE_DETECTED = 22;</code>
+     */
+    const OUTGOING_CALL_ANSWERING_MACHINE_DETECTED = 22;
 
     private static $valueToName = [
         self::NO_SESSION => 'NO_SESSION',
@@ -170,6 +183,7 @@ class StatusType
         self::MICROPHONE_UNMUTED => 'MICROPHONE_UNMUTED',
         self::MICROPHONE_WAV_FILES_PLAYED => 'MICROPHONE_WAV_FILES_PLAYED',
         self::NO_ONGOING_CALL => 'NO_ONGOING_CALL',
+        self::OUTGOING_CALL_ANSWERING_MACHINE_DETECTED => 'OUTGOING_CALL_ANSWERING_MACHINE_DETECTED',
     ];
 
     public static function name($value)

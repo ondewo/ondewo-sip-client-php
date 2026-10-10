@@ -66,7 +66,7 @@ The client version tracks the ONDEWO SIP API in major and minor version, so pin 
 matches the server you talk to:
 
 ```bash
-composer require ondewo/sip-client-php:^5.4
+composer require ondewo/sip-client-php:^5.5
 ```
 
 or, in `composer.json`:
@@ -74,7 +74,7 @@ or, in `composer.json`:
 ```json
 {
   "require": {
-    "ondewo/sip-client-php": "^5.4"
+    "ondewo/sip-client-php": "^5.5"
   }
 }
 ```
@@ -116,7 +116,7 @@ make setup_developer_environment_locally
 ```
 .
 ├── ondewo-sip-api          <----- submodule: the .proto definitions (ondewo/ = the services, google/ = imports)
-├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.1
+├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.5
 ├── auth                    <----- HAND-WRITTEN sources (bearer token authenticator, ClientConfig: TLS / mutual TLS)
 ├── src                     <----- GENERATED stubs, committed - compiler-owned, wiped on every generation run
 │   ├── GPBMetadata         <----- descriptor bootstrap, one class per .proto

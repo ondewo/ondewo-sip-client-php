@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Ondewo\Sip\Tests\Generated;
 
 use Google\Protobuf\Timestamp;
+use Ondewo\Sip\AnsweringMachineDetectionResult;
+use Ondewo\Sip\AnsweringMachineDetectionResult\Verdict;
 use Ondewo\Sip\SipStartSessionRequest;
 use Ondewo\Sip\SipStatus;
 use Ondewo\Sip\SipStatus\StatusType;
@@ -64,6 +66,41 @@ final class MessageSerializationTest extends TestCase
 
         // Byte-for-byte stability, which field-by-field getters alone would not prove.
         self::assertSame($bytes, $parsed->serializeToString());
+    }
+
+    /**
+     * The SipStatus fields ondewo-sip-api 5.5.0 added: the answering machine detection result, the
+     * call identity and the call-scoped media control / audio stream / SIP response reporting.
+     */
+    public function testTheCallControlStatusFieldsSurviveABinaryRoundTrip(): void
+    {
+        $amd = new AnsweringMachineDetectionResult();
+        $amd->setVerdict(Verdict::MACHINE);
+        $amd->setDecisionMs(1800);
+        $amd->setMatchedCueIds(['beep']);
+
+        $status = new SipStatus();
+        $status->setStatusType(StatusType::OUTGOING_CALL_ANSWERING_MACHINE_DETECTED);
+        $status->setAmdResult($amd);
+        $status->setCallId('call-7');
+        $status->setBotMuted(true);
+        $status->setListeningPaused(true);
+        $status->setCallAudioStreams(2);
+        $status->setSipResponseCode(603);
+
+        $parsed = new SipStatus();
+        $parsed->mergeFromString($status->serializeToString());
+
+        self::assertSame(StatusType::OUTGOING_CALL_ANSWERING_MACHINE_DETECTED, $parsed->getStatusType());
+        self::assertTrue($parsed->hasAmdResult());
+        self::assertSame(Verdict::MACHINE, $parsed->getAmdResult()->getVerdict());
+        self::assertSame(1800, $parsed->getAmdResult()->getDecisionMs());
+        self::assertSame(['beep'], iterator_to_array($parsed->getAmdResult()->getMatchedCueIds()));
+        self::assertSame('call-7', $parsed->getCallId());
+        self::assertTrue($parsed->getBotMuted());
+        self::assertTrue($parsed->getListeningPaused());
+        self::assertSame(2, $parsed->getCallAudioStreams());
+        self::assertSame(603, $parsed->getSipResponseCode());
     }
 
     public function testAnUnsetSubMessageStaysUnset(): void
