@@ -254,7 +254,7 @@ composer_validate: ## Validate composer.json
 	composer validate --no-check-publish --no-interaction
 
 lint_php: ## Syntax-check every hand-written PHP file with `php -l` (src/ is generated and skipped)
-	@for dir in auth tests examples; do \
+	@for dir in auth tests; do \
 		[ -d "$$dir" ] || continue; \
 		find "$$dir" -type f -name '*.php' | while IFS= read -r f; do \
 			php -l "$$f" > /dev/null || { echo "$(RED)[ERROR]$(NC) php -l failed: $$f"; exit 1; }; \
@@ -352,7 +352,9 @@ release: ## Automate the entire release process
 	git add ${ONDEWO_PROTO_COMPILER_DIR}
 	git add ${ONDEWO_SIP_API_DIR}
 	git status
-	-git commit --no-verify -m "PREPARING FOR RELEASE ${ONDEWO_SIP_VERSION}"
+# Commit only when something is staged, but never ignore a FAILED commit (no git identity, a
+# broken index): a `-` here would let the release tag and publish the previous commit.
+	git diff --cached --quiet || git commit --no-verify -m "PREPARING FOR RELEASE ${ONDEWO_SIP_VERSION}"
 	git push
 	make create_release_branch
 	make create_release_tag

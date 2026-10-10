@@ -101,9 +101,7 @@ final class ReleaseCredentialsHygieneTest extends TestCase
     public function testEveryPathTheReleaseRecipeAddsExists(): void
     {
         $makefile = self::read('Makefile');
-        $parts = explode("\nrelease:", $makefile, 2);
-        self::assertCount(2, $parts, 'release is missing');
-        $recipe = explode("\n\n", $parts[1], 2)[0];
+        $recipe = self::releaseRecipe();
 
         preg_match_all('/^\t(-?)git add (.+)$/m', $recipe, $adds, PREG_SET_ORDER);
         self::assertNotEmpty($adds, 'the release recipe adds nothing');
@@ -129,6 +127,24 @@ final class ReleaseCredentialsHygieneTest extends TestCase
         }
 
         self::assertSame([], $missing, 'the release recipe git-adds paths that do not exist');
+    }
+
+    public function testAFailedReleaseCommitStopsTheRelease(): void
+    {
+        $recipe = self::releaseRecipe();
+
+        // Nothing staged is fine; a commit that FAILS (no git identity, a broken index) must stop the
+        // release before it tags and publishes the previous commit under the new version.
+        self::assertSame(0, preg_match('/^\t-\s*git commit/m', $recipe), 'a failing git commit must stop the release');
+        self::assertSame(1, preg_match('/^\tgit diff --cached --quiet \|\| git commit /m', $recipe));
+    }
+
+    private static function releaseRecipe(): string
+    {
+        $parts = explode("\nrelease:", self::read('Makefile'), 2);
+        self::assertCount(2, $parts, 'release is missing');
+
+        return explode("\n\n", $parts[1], 2)[0];
     }
 
     /**
