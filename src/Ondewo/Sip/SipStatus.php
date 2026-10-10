@@ -77,6 +77,51 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>string nlu_session_name = 10;</code>
      */
     protected $nlu_session_name = '';
+    /**
+     * Result of the answering machine detection of the call. Set on
+     * <code>OUTGOING_CALL_ANSWERING_MACHINE_DETECTED</code> and on the terminal status of every call on which answering machine detection ran, including a
+     * <code>HUMAN</code> verdict; unset otherwise
+     *
+     * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult amd_result = 11;</code>
+     */
+    protected $amd_result = null;
+    /**
+     * Identifier of the ongoing call, minted per call: the value of the <code>X-ondewo-vtsi-caller-call-id</code> header of
+     * an outgoing call when present, otherwise a random UUID. Empty when no call is ongoing. Set on every status of the
+     * call, including the entries of <code>SipGetSipStatusHistory</code>. Clients send it back as the
+     * <code>x-ondewo-expected-call-id</code> metadatum to scope a request to this call
+     *
+     * Generated from protobuf field <code>string call_id = 12;</code>
+     */
+    protected $call_id = '';
+    /**
+     * <code>true</code> while the bot is muted by an operator, a conference participant policy or a TALK take-over of
+     * <code>SipSetCallMediaControl</code> / <code>SipStreamCallAudio</code>. Not the bot's own pipeline mute
+     * (<code>MICROPHONE_MUTED</code>). Cleared when the call ends
+     *
+     * Generated from protobuf field <code>bool bot_muted = 13;</code>
+     */
+    protected $bot_muted = false;
+    /**
+     * <code>true</code> while the bot does not listen to the caller (see <code>bot_muted</code> for who sets it). Cleared
+     * when the call ends
+     *
+     * Generated from protobuf field <code>bool listening_paused = 14;</code>
+     */
+    protected $listening_paused = false;
+    /**
+     * Number of connected <code>SipStreamCallAudio</code> streams of the ongoing call
+     *
+     * Generated from protobuf field <code>int32 call_audio_streams = 15;</code>
+     */
+    protected $call_audio_streams = 0;
+    /**
+     * SIP response code of the last transfer attempt of the ongoing call (<code>202</code> when accepted, the refusal code
+     * otherwise, <code>0</code> when unknown). Call-scoped
+     *
+     * Generated from protobuf field <code>int32 sip_response_code = 16;</code>
+     */
+    protected $sip_response_code = 0;
 
     /**
      * Constructor.
@@ -105,6 +150,27 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      *           Traceback of the exception
      *     @type string $nlu_session_name
      *           session name of the NLU session
+     *     @type \Ondewo\Sip\AnsweringMachineDetectionResult $amd_result
+     *           Result of the answering machine detection of the call. Set on
+     *           <code>OUTGOING_CALL_ANSWERING_MACHINE_DETECTED</code> and on the terminal status of every call on which answering machine detection ran, including a
+     *           <code>HUMAN</code> verdict; unset otherwise
+     *     @type string $call_id
+     *           Identifier of the ongoing call, minted per call: the value of the <code>X-ondewo-vtsi-caller-call-id</code> header of
+     *           an outgoing call when present, otherwise a random UUID. Empty when no call is ongoing. Set on every status of the
+     *           call, including the entries of <code>SipGetSipStatusHistory</code>. Clients send it back as the
+     *           <code>x-ondewo-expected-call-id</code> metadatum to scope a request to this call
+     *     @type bool $bot_muted
+     *           <code>true</code> while the bot is muted by an operator, a conference participant policy or a TALK take-over of
+     *           <code>SipSetCallMediaControl</code> / <code>SipStreamCallAudio</code>. Not the bot's own pipeline mute
+     *           (<code>MICROPHONE_MUTED</code>). Cleared when the call ends
+     *     @type bool $listening_paused
+     *           <code>true</code> while the bot does not listen to the caller (see <code>bot_muted</code> for who sets it). Cleared
+     *           when the call ends
+     *     @type int $call_audio_streams
+     *           Number of connected <code>SipStreamCallAudio</code> streams of the ongoing call
+     *     @type int $sip_response_code
+     *           SIP response code of the last transfer attempt of the ongoing call (<code>202</code> when accepted, the refusal code
+     *           otherwise, <code>0</code> when unknown). Call-scoped
      * }
      */
     public function __construct($data = NULL) {
@@ -380,6 +446,190 @@ class SipStatus extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkString($var, True);
         $this->nlu_session_name = $var;
+
+        return $this;
+    }
+
+    /**
+     * Result of the answering machine detection of the call. Set on
+     * <code>OUTGOING_CALL_ANSWERING_MACHINE_DETECTED</code> and on the terminal status of every call on which answering machine detection ran, including a
+     * <code>HUMAN</code> verdict; unset otherwise
+     *
+     * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult amd_result = 11;</code>
+     * @return \Ondewo\Sip\AnsweringMachineDetectionResult|null
+     */
+    public function getAmdResult()
+    {
+        return $this->amd_result;
+    }
+
+    public function hasAmdResult()
+    {
+        return isset($this->amd_result);
+    }
+
+    public function clearAmdResult()
+    {
+        unset($this->amd_result);
+    }
+
+    /**
+     * Result of the answering machine detection of the call. Set on
+     * <code>OUTGOING_CALL_ANSWERING_MACHINE_DETECTED</code> and on the terminal status of every call on which answering machine detection ran, including a
+     * <code>HUMAN</code> verdict; unset otherwise
+     *
+     * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult amd_result = 11;</code>
+     * @param \Ondewo\Sip\AnsweringMachineDetectionResult $var
+     * @return $this
+     */
+    public function setAmdResult($var)
+    {
+        GPBUtil::checkMessage($var, \Ondewo\Sip\AnsweringMachineDetectionResult::class);
+        $this->amd_result = $var;
+
+        return $this;
+    }
+
+    /**
+     * Identifier of the ongoing call, minted per call: the value of the <code>X-ondewo-vtsi-caller-call-id</code> header of
+     * an outgoing call when present, otherwise a random UUID. Empty when no call is ongoing. Set on every status of the
+     * call, including the entries of <code>SipGetSipStatusHistory</code>. Clients send it back as the
+     * <code>x-ondewo-expected-call-id</code> metadatum to scope a request to this call
+     *
+     * Generated from protobuf field <code>string call_id = 12;</code>
+     * @return string
+     */
+    public function getCallId()
+    {
+        return $this->call_id;
+    }
+
+    /**
+     * Identifier of the ongoing call, minted per call: the value of the <code>X-ondewo-vtsi-caller-call-id</code> header of
+     * an outgoing call when present, otherwise a random UUID. Empty when no call is ongoing. Set on every status of the
+     * call, including the entries of <code>SipGetSipStatusHistory</code>. Clients send it back as the
+     * <code>x-ondewo-expected-call-id</code> metadatum to scope a request to this call
+     *
+     * Generated from protobuf field <code>string call_id = 12;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setCallId($var)
+    {
+        GPBUtil::checkString($var, True);
+        $this->call_id = $var;
+
+        return $this;
+    }
+
+    /**
+     * <code>true</code> while the bot is muted by an operator, a conference participant policy or a TALK take-over of
+     * <code>SipSetCallMediaControl</code> / <code>SipStreamCallAudio</code>. Not the bot's own pipeline mute
+     * (<code>MICROPHONE_MUTED</code>). Cleared when the call ends
+     *
+     * Generated from protobuf field <code>bool bot_muted = 13;</code>
+     * @return bool
+     */
+    public function getBotMuted()
+    {
+        return $this->bot_muted;
+    }
+
+    /**
+     * <code>true</code> while the bot is muted by an operator, a conference participant policy or a TALK take-over of
+     * <code>SipSetCallMediaControl</code> / <code>SipStreamCallAudio</code>. Not the bot's own pipeline mute
+     * (<code>MICROPHONE_MUTED</code>). Cleared when the call ends
+     *
+     * Generated from protobuf field <code>bool bot_muted = 13;</code>
+     * @param bool $var
+     * @return $this
+     */
+    public function setBotMuted($var)
+    {
+        GPBUtil::checkBool($var);
+        $this->bot_muted = $var;
+
+        return $this;
+    }
+
+    /**
+     * <code>true</code> while the bot does not listen to the caller (see <code>bot_muted</code> for who sets it). Cleared
+     * when the call ends
+     *
+     * Generated from protobuf field <code>bool listening_paused = 14;</code>
+     * @return bool
+     */
+    public function getListeningPaused()
+    {
+        return $this->listening_paused;
+    }
+
+    /**
+     * <code>true</code> while the bot does not listen to the caller (see <code>bot_muted</code> for who sets it). Cleared
+     * when the call ends
+     *
+     * Generated from protobuf field <code>bool listening_paused = 14;</code>
+     * @param bool $var
+     * @return $this
+     */
+    public function setListeningPaused($var)
+    {
+        GPBUtil::checkBool($var);
+        $this->listening_paused = $var;
+
+        return $this;
+    }
+
+    /**
+     * Number of connected <code>SipStreamCallAudio</code> streams of the ongoing call
+     *
+     * Generated from protobuf field <code>int32 call_audio_streams = 15;</code>
+     * @return int
+     */
+    public function getCallAudioStreams()
+    {
+        return $this->call_audio_streams;
+    }
+
+    /**
+     * Number of connected <code>SipStreamCallAudio</code> streams of the ongoing call
+     *
+     * Generated from protobuf field <code>int32 call_audio_streams = 15;</code>
+     * @param int $var
+     * @return $this
+     */
+    public function setCallAudioStreams($var)
+    {
+        GPBUtil::checkInt32($var);
+        $this->call_audio_streams = $var;
+
+        return $this;
+    }
+
+    /**
+     * SIP response code of the last transfer attempt of the ongoing call (<code>202</code> when accepted, the refusal code
+     * otherwise, <code>0</code> when unknown). Call-scoped
+     *
+     * Generated from protobuf field <code>int32 sip_response_code = 16;</code>
+     * @return int
+     */
+    public function getSipResponseCode()
+    {
+        return $this->sip_response_code;
+    }
+
+    /**
+     * SIP response code of the last transfer attempt of the ongoing call (<code>202</code> when accepted, the refusal code
+     * otherwise, <code>0</code> when unknown). Call-scoped
+     *
+     * Generated from protobuf field <code>int32 sip_response_code = 16;</code>
+     * @param int $var
+     * @return $this
+     */
+    public function setSipResponseCode($var)
+    {
+        GPBUtil::checkInt32($var);
+        $this->sip_response_code = $var;
 
         return $this;
     }

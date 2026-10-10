@@ -22,6 +22,20 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>bool hard_hangup = 1;</code>
      */
     protected $hard_hangup = false;
+    /**
+     * Optional: reason for ending the call. Leave unset for an ordinary hangup
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipEndCallRequest.EndCallReason end_reason = 2;</code>
+     */
+    protected $end_reason = 0;
+    /**
+     * Optional: result of the answering machine detection that decided to end the call. Only meaningful together with
+     * <code>end_reason = ANSWERING_MACHINE</code> or <code>end_reason = ANSWERING_MACHINE_VOICE_MESSAGE_LEFT</code>;
+     * it is carried into <code>SipStatus.amd_result</code> of the terminal status of the call
+     *
+     * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult amd_result = 3;</code>
+     */
+    protected $amd_result = null;
 
     /**
      * Constructor.
@@ -31,6 +45,12 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
      *
      *     @type bool $hard_hangup
      *           Set to <code>True</code> to forcefully hang up the call
+     *     @type int $end_reason
+     *           Optional: reason for ending the call. Leave unset for an ordinary hangup
+     *     @type \Ondewo\Sip\AnsweringMachineDetectionResult $amd_result
+     *           Optional: result of the answering machine detection that decided to end the call. Only meaningful together with
+     *           <code>end_reason = ANSWERING_MACHINE</code> or <code>end_reason = ANSWERING_MACHINE_VOICE_MESSAGE_LEFT</code>;
+     *           it is carried into <code>SipStatus.amd_result</code> of the terminal status of the call
      * }
      */
     public function __construct($data = NULL) {
@@ -60,6 +80,72 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkBool($var);
         $this->hard_hangup = $var;
+
+        return $this;
+    }
+
+    /**
+     * Optional: reason for ending the call. Leave unset for an ordinary hangup
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipEndCallRequest.EndCallReason end_reason = 2;</code>
+     * @return int
+     */
+    public function getEndReason()
+    {
+        return $this->end_reason;
+    }
+
+    /**
+     * Optional: reason for ending the call. Leave unset for an ordinary hangup
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipEndCallRequest.EndCallReason end_reason = 2;</code>
+     * @param int $var
+     * @return $this
+     */
+    public function setEndReason($var)
+    {
+        GPBUtil::checkEnum($var, \Ondewo\Sip\SipEndCallRequest\EndCallReason::class);
+        $this->end_reason = $var;
+
+        return $this;
+    }
+
+    /**
+     * Optional: result of the answering machine detection that decided to end the call. Only meaningful together with
+     * <code>end_reason = ANSWERING_MACHINE</code> or <code>end_reason = ANSWERING_MACHINE_VOICE_MESSAGE_LEFT</code>;
+     * it is carried into <code>SipStatus.amd_result</code> of the terminal status of the call
+     *
+     * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult amd_result = 3;</code>
+     * @return \Ondewo\Sip\AnsweringMachineDetectionResult|null
+     */
+    public function getAmdResult()
+    {
+        return $this->amd_result;
+    }
+
+    public function hasAmdResult()
+    {
+        return isset($this->amd_result);
+    }
+
+    public function clearAmdResult()
+    {
+        unset($this->amd_result);
+    }
+
+    /**
+     * Optional: result of the answering machine detection that decided to end the call. Only meaningful together with
+     * <code>end_reason = ANSWERING_MACHINE</code> or <code>end_reason = ANSWERING_MACHINE_VOICE_MESSAGE_LEFT</code>;
+     * it is carried into <code>SipStatus.amd_result</code> of the terminal status of the call
+     *
+     * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult amd_result = 3;</code>
+     * @param \Ondewo\Sip\AnsweringMachineDetectionResult $var
+     * @return $this
+     */
+    public function setAmdResult($var)
+    {
+        GPBUtil::checkMessage($var, \Ondewo\Sip\AnsweringMachineDetectionResult::class);
+        $this->amd_result = $var;
 
         return $this;
     }

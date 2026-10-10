@@ -23,11 +23,38 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      */
     protected $transfer_id = '';
     /**
-     * The headers to include when transferring the call
+     * The headers to include when transferring the call. They are sent on the REFER. Note that Asterisk (res_pjsip,
+     * measured on 18.6 and 22) does NOT forward headers of a REFER to the transfer target: the target receives the
+     * headers of the transferred caller's original INVITE. Hand headers to the target through the dialplan instead
      *
      * Generated from protobuf field <code>map<string, string> headers = 2;</code>
      */
     private $headers;
+    /**
+     * <p>Optional. How long to wait, in milliseconds, for the SIP server's answer to the REFER before reporting the outcome.
+     * Clamped to 10000.</p>
+     * <p><code>0</code> (default): legacy behaviour, unchanged: REFER, then an immediate hangup.</p>
+     * <p><code>&gt; 0</code>: the call is kept until the outcome is known:</p>
+     * <ul>
+     *   <li>REFER accepted (<code>202</code>): the hangup is held for a short grace in which a terminal NOTIFY with a
+     *   <code>404</code> sipfrag (unknown target) still counts as a refusal; any other sipfrag, or none, means accepted.
+     *   The bot then hangs up and <code>TRANSFER_CALL_INITIATED</code> is returned with
+     *   <code>sip_response_code = 202</code>. The call ends as <code>*_CALL_FINISHED</code> with the description
+     *   <code>Call transferred</code>.</li>
+     *   <li>REFER refused (a final response <code>&gt;= 400</code>, or the <code>404</code> sipfrag above): the call is KEPT
+     *   with the bot, nothing is assigned to the shared status, and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *   <code>description = reason=refer-rejected</code> and <code>sip_response_code</code> (<code>0</code> when the SIP
+     *   stack did not report the code, e.g. a declined REFER).</li>
+     *   <li>No answer within the timeout: the call is KEPT and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *   <code>description = reason=refer-timeout</code>. A late acceptance still ends the bot's leg.</li>
+     *   <li>The call ended while waiting: <code>NO_ONGOING_CALL</code> is returned.</li>
+     * </ul>
+     * <p>A <code>202</code> does not mean the target answered: when the dialplan's dial to the target then fails (busy, no
+     * answer, unreachable) the caller is lost. Validate targets up front, or use a WARM transfer.</p>
+     *
+     * Generated from protobuf field <code>uint32 outcome_timeout_ms = 3;</code>
+     */
+    protected $outcome_timeout_ms = 0;
 
     /**
      * Constructor.
@@ -38,7 +65,30 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      *     @type string $transfer_id
      *           The account name or phone number to transfer the call to
      *     @type array|\Google\Protobuf\Internal\MapField $headers
-     *           The headers to include when transferring the call
+     *           The headers to include when transferring the call. They are sent on the REFER. Note that Asterisk (res_pjsip,
+     *           measured on 18.6 and 22) does NOT forward headers of a REFER to the transfer target: the target receives the
+     *           headers of the transferred caller's original INVITE. Hand headers to the target through the dialplan instead
+     *     @type int $outcome_timeout_ms
+     *           <p>Optional. How long to wait, in milliseconds, for the SIP server's answer to the REFER before reporting the outcome.
+     *           Clamped to 10000.</p>
+     *           <p><code>0</code> (default): legacy behaviour, unchanged: REFER, then an immediate hangup.</p>
+     *           <p><code>&gt; 0</code>: the call is kept until the outcome is known:</p>
+     *           <ul>
+     *             <li>REFER accepted (<code>202</code>): the hangup is held for a short grace in which a terminal NOTIFY with a
+     *             <code>404</code> sipfrag (unknown target) still counts as a refusal; any other sipfrag, or none, means accepted.
+     *             The bot then hangs up and <code>TRANSFER_CALL_INITIATED</code> is returned with
+     *             <code>sip_response_code = 202</code>. The call ends as <code>*_CALL_FINISHED</code> with the description
+     *             <code>Call transferred</code>.</li>
+     *             <li>REFER refused (a final response <code>&gt;= 400</code>, or the <code>404</code> sipfrag above): the call is KEPT
+     *             with the bot, nothing is assigned to the shared status, and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *             <code>description = reason=refer-rejected</code> and <code>sip_response_code</code> (<code>0</code> when the SIP
+     *             stack did not report the code, e.g. a declined REFER).</li>
+     *             <li>No answer within the timeout: the call is KEPT and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *             <code>description = reason=refer-timeout</code>. A late acceptance still ends the bot's leg.</li>
+     *             <li>The call ended while waiting: <code>NO_ONGOING_CALL</code> is returned.</li>
+     *           </ul>
+     *           <p>A <code>202</code> does not mean the target answered: when the dialplan's dial to the target then fails (busy, no
+     *           answer, unreachable) the caller is lost. Validate targets up front, or use a WARM transfer.</p>
      * }
      */
     public function __construct($data = NULL) {
@@ -73,7 +123,9 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * The headers to include when transferring the call
+     * The headers to include when transferring the call. They are sent on the REFER. Note that Asterisk (res_pjsip,
+     * measured on 18.6 and 22) does NOT forward headers of a REFER to the transfer target: the target receives the
+     * headers of the transferred caller's original INVITE. Hand headers to the target through the dialplan instead
      *
      * Generated from protobuf field <code>map<string, string> headers = 2;</code>
      * @return \Google\Protobuf\Internal\MapField
@@ -84,7 +136,9 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * The headers to include when transferring the call
+     * The headers to include when transferring the call. They are sent on the REFER. Note that Asterisk (res_pjsip,
+     * measured on 18.6 and 22) does NOT forward headers of a REFER to the transfer target: the target receives the
+     * headers of the transferred caller's original INVITE. Hand headers to the target through the dialplan instead
      *
      * Generated from protobuf field <code>map<string, string> headers = 2;</code>
      * @param array|\Google\Protobuf\Internal\MapField $var
@@ -94,6 +148,70 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
     {
         $arr = GPBUtil::checkMapField($var, \Google\Protobuf\Internal\GPBType::STRING, \Google\Protobuf\Internal\GPBType::STRING);
         $this->headers = $arr;
+
+        return $this;
+    }
+
+    /**
+     * <p>Optional. How long to wait, in milliseconds, for the SIP server's answer to the REFER before reporting the outcome.
+     * Clamped to 10000.</p>
+     * <p><code>0</code> (default): legacy behaviour, unchanged: REFER, then an immediate hangup.</p>
+     * <p><code>&gt; 0</code>: the call is kept until the outcome is known:</p>
+     * <ul>
+     *   <li>REFER accepted (<code>202</code>): the hangup is held for a short grace in which a terminal NOTIFY with a
+     *   <code>404</code> sipfrag (unknown target) still counts as a refusal; any other sipfrag, or none, means accepted.
+     *   The bot then hangs up and <code>TRANSFER_CALL_INITIATED</code> is returned with
+     *   <code>sip_response_code = 202</code>. The call ends as <code>*_CALL_FINISHED</code> with the description
+     *   <code>Call transferred</code>.</li>
+     *   <li>REFER refused (a final response <code>&gt;= 400</code>, or the <code>404</code> sipfrag above): the call is KEPT
+     *   with the bot, nothing is assigned to the shared status, and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *   <code>description = reason=refer-rejected</code> and <code>sip_response_code</code> (<code>0</code> when the SIP
+     *   stack did not report the code, e.g. a declined REFER).</li>
+     *   <li>No answer within the timeout: the call is KEPT and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *   <code>description = reason=refer-timeout</code>. A late acceptance still ends the bot's leg.</li>
+     *   <li>The call ended while waiting: <code>NO_ONGOING_CALL</code> is returned.</li>
+     * </ul>
+     * <p>A <code>202</code> does not mean the target answered: when the dialplan's dial to the target then fails (busy, no
+     * answer, unreachable) the caller is lost. Validate targets up front, or use a WARM transfer.</p>
+     *
+     * Generated from protobuf field <code>uint32 outcome_timeout_ms = 3;</code>
+     * @return int
+     */
+    public function getOutcomeTimeoutMs()
+    {
+        return $this->outcome_timeout_ms;
+    }
+
+    /**
+     * <p>Optional. How long to wait, in milliseconds, for the SIP server's answer to the REFER before reporting the outcome.
+     * Clamped to 10000.</p>
+     * <p><code>0</code> (default): legacy behaviour, unchanged: REFER, then an immediate hangup.</p>
+     * <p><code>&gt; 0</code>: the call is kept until the outcome is known:</p>
+     * <ul>
+     *   <li>REFER accepted (<code>202</code>): the hangup is held for a short grace in which a terminal NOTIFY with a
+     *   <code>404</code> sipfrag (unknown target) still counts as a refusal; any other sipfrag, or none, means accepted.
+     *   The bot then hangs up and <code>TRANSFER_CALL_INITIATED</code> is returned with
+     *   <code>sip_response_code = 202</code>. The call ends as <code>*_CALL_FINISHED</code> with the description
+     *   <code>Call transferred</code>.</li>
+     *   <li>REFER refused (a final response <code>&gt;= 400</code>, or the <code>404</code> sipfrag above): the call is KEPT
+     *   with the bot, nothing is assigned to the shared status, and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *   <code>description = reason=refer-rejected</code> and <code>sip_response_code</code> (<code>0</code> when the SIP
+     *   stack did not report the code, e.g. a declined REFER).</li>
+     *   <li>No answer within the timeout: the call is KEPT and <code>TRANSFER_CALL_FAILED</code> is returned with
+     *   <code>description = reason=refer-timeout</code>. A late acceptance still ends the bot's leg.</li>
+     *   <li>The call ended while waiting: <code>NO_ONGOING_CALL</code> is returned.</li>
+     * </ul>
+     * <p>A <code>202</code> does not mean the target answered: when the dialplan's dial to the target then fails (busy, no
+     * answer, unreachable) the caller is lost. Validate targets up front, or use a WARM transfer.</p>
+     *
+     * Generated from protobuf field <code>uint32 outcome_timeout_ms = 3;</code>
+     * @param int $var
+     * @return $this
+     */
+    public function setOutcomeTimeoutMs($var)
+    {
+        GPBUtil::checkUint32($var);
+        $this->outcome_timeout_ms = $var;
 
         return $this;
     }

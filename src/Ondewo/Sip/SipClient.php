@@ -94,6 +94,17 @@ class SipClient extends \Grpc\BaseStub {
 
     /**
      * <p>Transfers a call in an active SIP session for an account registered at a SIP server to another SIP account or phone number specified by <code>transfer_id</code></p>
+     * <p>Call scoping: when the gRPC metadatum <code>x-ondewo-expected-call-id</code> is present it must equal
+     * <code>SipStatus.call_id</code> of the ongoing call, otherwise the request is refused with
+     * <code>exception_name=CallScopeMismatch</code> and nothing is assigned to the status. When it is absent the request is
+     * accepted for backward compatibility (unless the server requires call scoping).</p>
+     * <p>With <code>outcome_timeout_ms = 0</code> the call is transferred as before (REFER, then an immediate hangup).
+     * With <code>outcome_timeout_ms &gt; 0</code> see <code>SipTransferCallRequest.outcome_timeout_ms</code>.</p>
+     * <p>Refused while invited participants are present (see
+     * <code>SipSetCallMediaControlRequest.participants_present</code>): a REFER into a conference bridge transfers every
+     * party in it, the invited participant included. The refusal is RETURNED as <code>TRANSFER_CALL_FAILED</code> with
+     * <code>exception_name=ParticipantsPresent</code> and <code>description = reason=participants-present</code>; nothing
+     * is sent and the call is kept.</p>
      * @param \Ondewo\Sip\SipTransferCallRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
@@ -154,6 +165,8 @@ class SipClient extends \Grpc\BaseStub {
 
     /**
      * <p>Plays wav files during an ongoing call of an active SIP session</p>
+     * <p>Call scoping as for <code>SipTransferCall</code>: a present <code>x-ondewo-expected-call-id</code> metadatum must
+     * match <code>SipStatus.call_id</code>.</p>
      * @param \Ondewo\Sip\SipPlayWavFilesRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
@@ -169,6 +182,9 @@ class SipClient extends \Grpc\BaseStub {
 
     /**
      * <p>Mutes the microphone in an ongoing call of an active SIP session</p>
+     * <p>Call scoping as for <code>SipTransferCall</code>. Sent by the in-container speech-to-speech pipeline it mutes only
+     * the bot's own mixer slot; sent by a remote client it sets the operator mute of
+     * <code>SipSetCallMediaControl</code>, which the pipeline cannot undo.</p>
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
@@ -184,6 +200,7 @@ class SipClient extends \Grpc\BaseStub {
 
     /**
      * <p>Un-mutes the microphone in an ongoing call of an active SIP session</p>
+     * <p>Call scoping and the split between the pipeline's own mute and the operator mute as for <code>SipMute</code>.</p>
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
@@ -194,6 +211,72 @@ class SipClient extends \Grpc\BaseStub {
         return $this->_simpleRequest('/ondewo.sip.Sip/SipUnMute',
         $argument,
         ['\Ondewo\Sip\SipStatus', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * <p>Reports that answering machine detection reached a verdict on the ongoing outgoing call. Sets the status
+     * <code>OUTGOING_CALL_ANSWERING_MACHINE_DETECTED</code> carrying <code>amd_result</code>; the call stays up.</p>
+     * <p>Called by the speech-to-speech pipeline (ONDEWO-CSI) inside the same container, i.e. over loopback only.
+     * Refused, and the current status left untouched, when no outgoing call is connected: the returned
+     * <code>SipStatus</code> then carries the refusal in <code>exception_name</code> and <code>description</code></p>
+     * @param \Ondewo\Sip\SipReportAnsweringMachineDetectedRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall
+     */
+    public function SipReportAnsweringMachineDetected(\Ondewo\Sip\SipReportAnsweringMachineDetectedRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/ondewo.sip.Sip/SipReportAnsweringMachineDetected',
+        $argument,
+        ['\Ondewo\Sip\SipStatus', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * <p>Call-scoped operator media control of the ongoing call: mute the bot and/or pause its listening.</p>
+     * <p>Metadata REQUIRED: <code>x-ondewo-expected-call-id</code> (must equal <code>SipStatus.call_id</code> of the ongoing
+     * call) and <code>x-ondewo-sip-call-control-token</code> (the per-container call-control token).</p>
+     * <p>Every request sets a desired level per owner and never toggles; a repeat leaves the level unchanged. The bot is
+     * muted while ANY owner holds a mute, and its listening is paused while ANY owner holds a pause.</p>
+     * <p>Returns the live status with <code>call_id</code>, <code>bot_muted</code>, <code>listening_paused</code> and
+     * <code>call_audio_streams</code> filled. Refusals are RETURNED in <code>exception_name</code> /
+     * <code>description</code> (<code>CallScopeMismatch</code>, <code>CallControlUnauthenticated</code>,
+     * <code>NoOngoingCall</code>, <code>AmdInProgress</code>, <code>CsiMediaControlFailed</code>) and never assigned to
+     * the shared status. When the pipeline refuses or fails, a requested pause is rolled back and a requested mute is
+     * kept (the safe direction); the returned fields carry the actual level.</p>
+     * @param \Ondewo\Sip\SipSetCallMediaControlRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall
+     */
+    public function SipSetCallMediaControl(\Ondewo\Sip\SipSetCallMediaControlRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/ondewo.sip.Sip/SipSetCallMediaControl',
+        $argument,
+        ['\Ondewo\Sip\SipStatus', 'decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * <p>Bidirectional live audio of the ongoing call.</p>
+     * <p>The first request MUST be <code>config</code> and must arrive within 2 seconds. Metadata as for
+     * <code>SipSetCallMediaControl</code>.</p>
+     * <p>LISTEN receives the caller (plus any conference participants) mixed with the bot. TALK sends the agent's audio to
+     * the caller; it REQUIRES <code>take_over</code>, i.e. the bot is muted and does not listen while the stream is
+     * connected, and in TALK the agent hears the caller only. Audio is LINEAR16 little-endian mono in 20 ms frames.</p>
+     * <p>gRPC status codes: <code>UNAUTHENTICATED</code> (token), <code>FAILED_PRECONDITION</code> (call id mismatch, no
+     * connected call, answering machine detection in progress, bot still speaking at TALK start),
+     * <code>INVALID_ARGUMENT</code> (missing or invalid <code>config</code>, wrong frame size),
+     * <code>RESOURCE_EXHAUSTED</code> (stream cap reached, a second TALK). A normal end sends one <code>ended</code>
+     * message and then OK.</p>
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\BidiStreamingCall
+     */
+    public function SipStreamCallAudio($metadata = [], $options = []) {
+        return $this->_bidiRequest('/ondewo.sip.Sip/SipStreamCallAudio',
+        ['\Ondewo\Sip\SipCallAudioResponse','decode'],
         $metadata, $options);
     }
 

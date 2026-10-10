@@ -2,6 +2,43 @@
 
 *****************
 
+## Release ONDEWO SIP PHP Client 5.5.0
+
+### New Features
+
+* Tracking API Version [5.5.0](https://github.com/ondewo/ondewo-sip-api/releases/tag/5.5.0) ( [Documentation](https://ondewo.github.io/ondewo-sip-api/) ).
+  The regenerated `Ondewo\Sip\SipClient` and messages carry the API's new surface:
+  * Answering machine detection: status `OUTGOING_CALL_ANSWERING_MACHINE_DETECTED`,
+    `AnsweringMachineDetectionResult` (`SipStatus.amd_result`), `SipEndCallRequest.end_reason` /
+    `amd_result` and the new unary RPC `SipReportAnsweringMachineDetected`.
+  * Call identity: `SipStatus.call_id`; requests are scoped to a call with the `x-ondewo-expected-call-id` gRPC
+    metadatum.
+  * Call-scoped operator media control: the new unary RPC `SipSetCallMediaControl` (`MediaControlSetting`,
+    `MediaControlOwner`, `SipSetCallMediaControlRequest`), reported in `SipStatus.bot_muted` /
+    `listening_paused`.
+  * Live call audio: the new bidirectional streaming RPC `SipStreamCallAudio` (`SipCallAudio*` messages and enums),
+    counted in `SipStatus.call_audio_streams`.
+  * Truthful transfers: `SipTransferCallRequest.outcome_timeout_ms`, `SipStatus.sip_response_code` and
+    `SipEndCallRequest.EndCallReason.END_CALL_REASON_TRANSFERRED`.
+  * `SipGetSipStatus` / `SipGetSipStatusHistory` declare `idempotency_level = NO_SIDE_EFFECTS`. This client has no
+    per-method retry policy (only gRPC's transparent retries), so the PHP behaviour does not change.
+* Purely additive: no field, enum value or RPC was renumbered or removed, so code written against 5.4.x keeps
+  working.
+
+### Improvements
+
+* Proto compiler pinned to [5.15.5](https://github.com/ondewo/ondewo-proto-compiler/releases/tag/5.15.5).
+* `make check_build` camel-cases hyphenated proto names too (`speech-to-text.proto` -> `SpeechToText.php`), as the
+  other ONDEWO PHP clients do.
+
+### Tests
+
+* `tests/Generated/ServiceClientTest.php` covers the two new unary RPCs and asserts that `SipStreamCallAudio` is
+  generated as a bidirectional stream.
+* `tests/Generated/MessageSerializationTest.php` round-trips the new `SipStatus` fields.
+
+*****************
+
 ## Release ONDEWO SIP PHP Client 5.4.1
 
 ### Improvements
