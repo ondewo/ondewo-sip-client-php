@@ -385,9 +385,11 @@ check_gh_credentials: ## Fail unless GITHUB_GH_TOKEN is set
 		echo "$(RED)[ERROR]$(NC) GITHUB_GH_TOKEN is not set - create one at https://github.com/settings/tokens (devops-accounts: account_github.env)"; exit 1; fi
 	@echo "$(GREEN)[SUCCESS]$(NC) GITHUB_GH_TOKEN is set"
 
-# Prefixed with @ so the token never reaches the build log.
+# Prefixed with @ so the token never reaches the build log. Read as $${GITHUB_GH_TOKEN}, which the
+# shell expands from the exported environment: make would expand $(GITHUB_GH_TOKEN) into the
+# `sh -c` command line, and /proc/<pid>/cmdline is world-readable. printf is a shell builtin.
 login_to_gh: check_gh_credentials ## Login to Github CLI with Access Token
-	@echo $(GITHUB_GH_TOKEN) | gh auth login -p ssh --with-token
+	@printf '%s\n' "$${GITHUB_GH_TOKEN}" | gh auth login -p ssh --with-token
 
 # `gh release create -n ""` succeeds and publishes an EMPTY release, so a forgotten RELEASE.md
 # entry - or a heading whose wording drifted away from what the CURRENT_RELEASE_NOTES flip-flop
@@ -564,9 +566,15 @@ clone_devops_accounts: ## Clones devops-accounts repo
 	if [ -d $(DEVOPS_ACCOUNT_GIT) ]; then rm -Rf $(DEVOPS_ACCOUNT_GIT); fi
 	git clone git@bitbucket.org:ondewo/${DEVOPS_ACCOUNT_GIT}.git
 
+# The credentials are exported into the sub-make's ENVIRONMENT. `make release NAME=<value>` would put
+# every value on make's argv, which /proc/<pid>/cmdline shows to every user on the host. The greps
+# are anchored (^NAME=) so a comment line that mentions a variable name cannot corrupt its value.
 run_release_with_devops: ## Gets Credentials from devops-repo and run release command with them
-	$(eval info:= $(shell cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH & cat ${DEVOPS_ACCOUNT_DIR}/account_packagist.env | grep PACKAGIST_USERNAME & cat ${DEVOPS_ACCOUNT_DIR}/account_packagist.env | grep PACKAGIST_API_TOKEN))
-	@make release $(info)
+	@set -a \
+		&& eval "$$(grep -h -E '^GITHUB_GH_TOKEN=' ${DEVOPS_ACCOUNT_DIR}/account_github.env; \
+			grep -h -E '^(PACKAGIST_USERNAME|PACKAGIST_API_TOKEN)=' ${DEVOPS_ACCOUNT_DIR}/account_packagist.env)" \
+		&& set +a \
+		&& $(MAKE) release
 
 # All three tests used to match on a SUBSTRING, which made each of them lie:
 #   * `git branch --all | grep "release/7.1.0"` also matches release/7.1.0-rc1 and
