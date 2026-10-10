@@ -2,6 +2,47 @@
 
 *****************
 
+## Release ONDEWO SIP PHP Client 5.4.1
+
+### Improvements
+
+* Tracking API Version [5.4.0](https://github.com/ondewo/ondewo-sip-api/releases/tag/5.4.0) ( [Documentation](https://ondewo.github.io/ondewo-sip-api/) )
+* New `Ondewo\Sip\Auth\ClientConfig` (hand-written, in `auth/`) builds the target and the `$opts` of every
+  generated `<Service>Client` for plaintext, TLS and mutual TLS, with the same rules as the other ONDEWO SDKs:
+  * `grpcCert`, `grpcClientCert` and `grpcClientKey` take PEM **content**, never a file path; CRLF PEMs work. An
+    empty `grpcCert` means the platform's default trust store.
+  * `grpcClientCert` / `grpcClientKey` are both-or-neither: half a pair throws `InvalidArgumentException` when the
+    config is built and again in `channelCredentials()`, before anything reaches ext-grpc (grpc-core aborts the
+    process on a key without its certificate).
+  * `useSecureChannel: false` with a client identity throws instead of silently dropping it; a plaintext channel
+    logs a warning naming `host:port` on a PSR-3 logger if given, otherwise through `error_log()`.
+  * `channelOptions()` refuses a `credentials` option of its own; every other option is passed through.
+  * Exception messages name the field and `host:port`, never a PEM or the config. `(string)`, `var_dump()` /
+    `print_r()` and `json_encode()` show a non-empty `grpcClientKey` as `***REDACTED***`; `serialize()`,
+    `var_export()` and `(array)` are not redacted (documented). The key parameter is `#[\SensitiveParameter]`.
+  * `target()` brackets a bare IPv6 literal (`[::1]:50051`) and leaves `[...]` / `scheme:` hosts alone.
+  * `ClientConfig::DEFAULT_CHANNEL_OPTIONS` matches ondewo-client-utils-python: message size 2³¹-1 both ways,
+    keepalive 30 s with `max_pings_without_data` 2 and no pings without calls, keepalive and HTTP/2 ping timeout
+    20 s, reconnect backoff capped at 5 s. Documented gap: no per-method retry policy, only gRPC's transparent
+    retries.
+* `composer.json` suggests `psr/log` for the insecure-channel warning.
+* README section "TLS, mutual TLS and certificates": modes, an openssl test PKI, security notes and troubleshooting.
+* `make publish` / the release workflow: Packagist's `202 Accepted` counts as success, and the HTTP-code check no
+  longer runs in a separate shell with an empty code (a comment inside the continued shell block split it), which
+  failed every publish.
+* Proto compiler pinned to [5.15.2](https://github.com/ondewo/ondewo-proto-compiler/releases/tag/5.15.2).
+
+### Tests
+
+* `tests/Auth/ClientConfigTest.php` covers `ClientConfig` (100% coverage of `auth/`).
+* `tests/Tls/MutualTlsHandshakeTest.php`: real handshakes with a PKI generated at test time (ext-openssl) against a
+  python grpcio server: TLS, mutual TLS, CRLF PEMs and `[::1]` connect; a missing or foreign client certificate, a
+  wrong CA and the system roots against the test CA fail as `UNAVAILABLE`. CI installs grpcio 1.82.1.
+* `tests/ReleaseNotesTest.php` pins the `RELEASE.md` heading and `*****` separator the GitHub release-notes slice
+  relies on.
+
+*****************
+
 ## Release ONDEWO SIP PHP Client 5.4.0
 
 ### New Features
