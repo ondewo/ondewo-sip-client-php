@@ -47,7 +47,7 @@ This is the single thing to internalise before touching the repository:
 | `composer.json` | you, but **merged** by the compiler on every run | yes |
 | `composer.lock`, `vendor/` | composer | no — gitignored |
 | `auth/` | you | yes |
-| `tests/`, `examples/` | you | yes |
+| `tests/` | you | yes |
 | `ondewo-sip-api`, `ondewo-proto-compiler` | their own repositories | as submodule commits |
 
 * `src/` is deleted and rewritten on every `make generate_ondewo_protos`. **Never** put hand-written PHP
