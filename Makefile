@@ -51,12 +51,12 @@
 
 # MUST BE THE SAME AS THE API in Major and Minor Version Number
 # example: API 2.9.0 --> Client 2.9.X
-ONDEWO_SIP_VERSION=5.5.0
+ONDEWO_SIP_VERSION=5.5.2
 
 # Submodule pins. Both are checked out by `make checkout_defined_submodule_versions`, so the
 # stubs of a release are always reproducible from the two commits recorded here.
-ONDEWO_SIP_API_GIT_BRANCH=tags/5.5.0
-ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.5
+ONDEWO_SIP_API_GIT_BRANCH=tags/5.5.2
+ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.7
 
 # Submodule directories - both sit at the repository root, see .gitmodules
 ONDEWO_SIP_API_DIR=ondewo-sip-api
