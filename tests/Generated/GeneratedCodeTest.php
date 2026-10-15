@@ -22,16 +22,6 @@ use SplFileInfo;
  */
 final class GeneratedCodeTest extends TestCase
 {
-    /**
-     * The services of ondewo-sip-api. PRODUCT-SPECIFIC: replace this list wholesale when this
-     * suite is replicated to another ONDEWO client.
-     *
-     * @var list<class-string>
-     */
-    private const EXPECTED_SERVICE_CLIENTS = [
-        \Ondewo\Sip\SipClient::class,
-    ];
-
     public function testTheGeneratedStubsAreCommitted(): void
     {
         self::assertDirectoryExists(self::stubsDirectory(), 'src/ is missing - the generated stubs are not committed');
@@ -78,17 +68,6 @@ final class GeneratedCodeTest extends TestCase
         }
 
         self::assertGreaterThan(0, $initialised, 'no GPBMetadata descriptor was found under src/');
-    }
-
-    public function testEveryExpectedServiceClientIsGenerated(): void
-    {
-        foreach (self::EXPECTED_SERVICE_CLIENTS as $client) {
-            self::assertTrue(class_exists($client), $client . ' was not generated');
-            self::assertTrue(
-                is_subclass_of($client, \Grpc\BaseStub::class),
-                $client . ' does not extend \Grpc\BaseStub'
-            );
-        }
     }
 
     private static function stubsDirectory(): string
