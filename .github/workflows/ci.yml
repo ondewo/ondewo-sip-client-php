@@ -21,9 +21,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 # The generated stubs under src/ are COMMITTED (see .gitignore), so this workflow builds and tests
-# the tree as it stands: no docker image, no proto compiler, no submodules. Regenerating the stubs
-# from ondewo-sip-api is a separate integration concern driven by `make build` on a developer
-# machine.
+# the tree as it stands: no docker image, no proto compiler. The php jobs check out no submodules;
+# the `stubs` job fetches the public ondewo-sip-api submodule only, to compare the committed stubs
+# with its .proto files. Regenerating the stubs is driven by `make build` on a developer machine.
 #
 # There is deliberately not a single `[ -d ... ] || exit 0` guard below. The previous revision of
 # this file skipped every step when src/ was absent, which made a repository that held no code at
@@ -31,9 +31,15 @@ concurrency:
 jobs:
   lint:
     name: pre-commit (markdownlint + hygiene)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      # actions/checkout starts with a bare `git init`, and git >= 2.28 then prints a 13-line
+      # "Using 'master' as the name for the initial branch" hint into every job log. Naming the
+      # default up front is what silences it; master is this repository's default branch anyway.
+      - name: Name git's default branch
+        run: git config --global init.defaultBranch master
+
       - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
@@ -44,12 +50,34 @@ jobs:
       # `--all-files`; they gate the message at commit time on a developer machine.
       - name: Run pre-commit on all files
         run: |
-          python -m pip install --upgrade pre-commit
+          python -m pip install pre-commit==4.6.2
           pre-commit run --all-files --show-diff-on-failure
+
+  # The committed stubs against the ondewo-sip-api commit the submodule pins: every .proto has
+  # generated code and every rpc is served, with no stub left over (`make check_build`, the same
+  # check `make test` runs before a release). Only the public api submodule is fetched.
+  stubs:
+    name: stubs match the pinned ondewo-sip-api
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # actions/checkout starts with a bare `git init`, and git >= 2.28 then prints a 13-line
+      # "Using 'master' as the name for the initial branch" hint into every job log. Naming the
+      # default up front is what silences it; master is this repository's default branch anyway.
+      - name: Name git's default branch
+        run: git config --global init.defaultBranch master
+
+      - uses: actions/checkout@v7
+
+      - name: Check out the ondewo-sip-api submodule
+        run: git submodule update --init --depth 1 ondewo-sip-api
+
+      - name: Compare the generated stubs with the .proto files
+        run: make check_build
 
   php:
     name: php ${{ matrix.php-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -59,6 +87,12 @@ jobs:
         # are really exercised.
         php-version: ['8.1', '8.4']
     steps:
+      # actions/checkout starts with a bare `git init`, and git >= 2.28 then prints a 13-line
+      # "Using 'master' as the name for the initial branch" hint into every job log. Naming the
+      # default up front is what silences it; master is this repository's default branch anyway.
+      - name: Name git's default branch
+        run: git config --global init.defaultBranch master
+
       - uses: actions/checkout@v7
 
       # ext-grpc is a hard requirement of the generated stubs: every *Client.php extends

@@ -2,13 +2,19 @@ name: release
 
 # Packagist accepts no upload. It serves the tree of a git TAG of this repository verbatim, so
 # "publishing" the PHP client is (1) the tag that `make create_release_tag` pushed and (2) a ping
-# that tells Packagist to crawl it now rather than at its next scheduled pass. This workflow is
-# that ping, gated on the tagged tree actually building and passing its tests.
+# that tells Packagist to crawl it now rather than at its next scheduled pass. `make release` sends
+# that ping itself, with the devops-accounts credentials; this workflow re-tests the TAGGED tree in
+# a clean environment and then pings again (the ping is idempotent). `make release_verify` waits
+# for this run and fails the release unless it is green.
 #
-# The package must have been submitted to Packagist ONCE by hand before this can ever succeed -
-# see README "Publishing to Packagist". Until then the update API answers 404 and the job fails,
-# which is the intended behaviour: a release must never report success for a package nobody can
-# install.
+# Missing PACKAGIST_* secrets do NOT turn this run red, and say so loudly instead: the tagged tree
+# is still tested, the ping is skipped, and the run ends with a `::warning::` plus a job-summary
+# section naming the missing secret. The local `make release` ping is the authoritative one, and
+# `make release_verify` checks the result where it matters - Packagist's own p2 metadata - so a red
+# run here would only report a missing redundancy as a failed release.
+#
+# The package must have been submitted to Packagist ONCE by hand before any ping can succeed - see
+# README "Publishing to Packagist". Until then the update API answers 404 and the ping fails.
 on:
   push:
     tags:
@@ -28,31 +34,32 @@ permissions:
 jobs:
   publish:
     name: publish ${{ github.ref_name }} to Packagist
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      # FIRST, before the checkout and before five minutes of composer downloads. An unset GitHub
-      # secret expands to the EMPTY string rather than failing the expression, so without this
-      # guard the run would sail through to `make publish` and only there notice. Failing here is
-      # loud, instant and says exactly which secret is missing.
-      - name: Require the Packagist credentials
+      # FIRST, before the checkout. An unset GitHub secret expands to the EMPTY string rather than
+      # failing the expression, so its presence is decided here, once, and the ping below runs
+      # only when both are present. Names only - the values are never printed.
+      - name: Check for the Packagist credentials
+        id: packagist
         env:
           PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
           PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
         run: |
-          missing=0
-          if [ -z "$PACKAGIST_USERNAME" ]; then
-            echo "::error::the repository secret PACKAGIST_USERNAME is not set - it is the Packagist login name that owns ondewo/sip-client-php"
-            missing=1
+          missing=""
+          [ -n "$PACKAGIST_USERNAME" ] || missing="$missing PACKAGIST_USERNAME"
+          [ -n "$PACKAGIST_API_TOKEN" ] || missing="$missing PACKAGIST_API_TOKEN"
+          echo "missing=${missing# }" >> "$GITHUB_OUTPUT"
+          if [ -n "$missing" ]; then
+            echo "repository secret(s) not set:$missing - the tag is tested, the Packagist ping is skipped"
+          else
+            echo "both Packagist secrets are present"
           fi
-          if [ -z "$PACKAGIST_API_TOKEN" ]; then
-            echo "::error::the repository secret PACKAGIST_API_TOKEN is not set - create one at https://packagist.org/profile/ ('Show API token')"
-            missing=1
-          fi
-          if [ "$missing" -ne 0 ]; then
-            echo "::error::refusing to run the release without credentials - see README 'Publishing to Packagist'"
-            exit 1
-          fi
-          echo "both Packagist secrets are present"
+
+      # actions/checkout starts with a bare `git init`, and git >= 2.28 then prints a 13-line
+      # "Using 'master' as the name for the initial branch" hint into every job log. Naming the
+      # default up front is what silences it; master is this repository's default branch anyway.
+      - name: Name git's default branch
+        run: git config --global init.defaultBranch master
 
       - uses: actions/checkout@v7
 
@@ -95,7 +102,23 @@ jobs:
       # `make publish` re-runs check_packagist_credentials and the dry run itself, so the release
       # is self-contained rather than relying on the steps above having happened.
       - name: Publish to Packagist
+        if: steps.packagist.outputs.missing == ''
         env:
           PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
           PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
         run: make publish RELEASE_TAG=${{ github.ref_name }}
+
+      # The only path that emits an annotation, and only when a secret is missing.
+      - name: Report the skipped Packagist ping
+        if: steps.packagist.outputs.missing != ''
+        env:
+          MISSING: ${{ steps.packagist.outputs.missing }}
+        run: |
+          echo "::warning::Packagist ping SKIPPED - repository secret(s) not set: $MISSING. The tag passed its tests; Packagist relies on the ping 'make release' sent (checked by 'make release_verify'). See README 'Publishing to Packagist'."
+          {
+            echo "## Packagist ping skipped"
+            echo
+            echo "Repository secret(s) not set: \`$MISSING\`."
+            echo "The tagged tree passed its tests. Packagist relies on the ping \`make release\` sent with the"
+            echo "devops-accounts credentials; \`make release_verify\` checks that Packagist serves the version."
+          } >> "$GITHUB_STEP_SUMMARY"
