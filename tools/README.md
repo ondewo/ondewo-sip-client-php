@@ -29,3 +29,14 @@ make coverage              # phpunit --coverage-clover + coverage-check gate
 ```
 
 `tools/vendor/` is git-ignored.
+
+## The other files in here
+
+| File | Used by | What it is |
+| --- | --- | --- |
+| `php.Dockerfile` | `make php_toolchain` | php + composer + ext-grpc/bcmath/pcov, for a host without php or composer |
+| `release-tools.Dockerfile` | `make release_tools` | gh + pre-commit, for a release host without either |
+| `check-generated-rpcs.pl` | `make check_build` | compares the rpcs of the `.proto` files with the method paths the generated `*Client.php` stubs call |
+
+Both images pin their base image by version and digest; `.dockerignore` keeps this directory (and
+`tools/vendor/`) out of their build context, which neither of them needs.

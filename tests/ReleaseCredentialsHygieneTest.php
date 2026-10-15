@@ -34,13 +34,13 @@ final class ReleaseCredentialsHygieneTest extends TestCase
 
     public function testTheDevopsReleaseHandsTheCredentialsOverTheEnvironment(): void
     {
-        $parts = explode("\nrun_release_with_devops:", self::read('Makefile'), 2);
-        self::assertCount(2, $parts, 'run_release_with_devops is missing');
+        $parts = explode("\nondewo_release:", self::read('Makefile'), 2);
+        self::assertCount(2, $parts, 'ondewo_release is missing');
         $recipe = explode("\n\n", $parts[1], 2)[0];
 
         self::assertStringNotContainsString('$(info)', $recipe);
         self::assertStringContainsString('set -a', $recipe);
-        self::assertSame(1, preg_match('/\$\(MAKE\) release\s*$/', $recipe));
+        self::assertSame(1, preg_match('/\$\(SUBMAKE\) release\s*$/', $recipe));
         // Anchored, so a comment line that mentions a variable name cannot corrupt its value.
         self::assertSame(0, preg_match('/grep\s+(?:-\w+\s+)*[\'"]?(?!\^)[A-Z_]+/', $recipe));
     }

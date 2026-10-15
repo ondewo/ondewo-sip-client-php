@@ -1,0 +1,11 @@
+# No image is built from the repository root today (the compiler builds from its submodule, the
+# tool images from tools/). This keeps any future `docker build .` from sending credentials,
+# dependencies or history to the daemon.
+ondewo-devops-accounts
+.git
+vendor
+tools/vendor
+build
+node_modules
+ondewo-sip-api
+ondewo-proto-compiler

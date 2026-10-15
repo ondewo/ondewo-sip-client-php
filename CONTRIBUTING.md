@@ -64,8 +64,8 @@ The stubs are a pure function of two submodule commits. To track a new API versi
 
 1. Bump `ONDEWO_SIP_API_GIT_BRANCH` (and, for a new compiler release,
    `ONDEWO_PROTO_COMPILER_GIT_BRANCH`) at the top of the `Makefile`.
-2. Run `make build`. It checks out the pins, rebuilds the compiler image from the submodule, regenerates the
-   stubs and hands the root-owned output back to your user.
+2. Run `make build`. It checks out the pins, builds the compiler image from the submodule (tagged with the
+   compiler version) and regenerates the stubs. The compiler runs as your user, so no `sudo` is involved.
 3. Run `make test` and commit `src/`, the submodule pointers and the `Makefile` together — a regenerated
    `src/` that does not match the recorded submodule commits is not reproducible.
 

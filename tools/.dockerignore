@@ -1,0 +1,3 @@
+# tools/ is the build context of php.Dockerfile and release-tools.Dockerfile, and neither COPYs
+# anything from it - so send nothing, least of all tools/vendor/.
+*

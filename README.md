@@ -122,7 +122,7 @@ make setup_developer_environment_locally
 │   ├── GPBMetadata         <----- descriptor bootstrap, one class per .proto
 │   └── Ondewo              <----- messages, enums and the <Service>Client stubs
 ├── tests                   <----- PHPUnit suite (not part of the published classmap)
-├── tools                   <----- dev-only composer project: PHPUnit + the coverage gate
+├── tools                   <----- dev-only composer project (PHPUnit + coverage gate), the pinned tool images, the rpc drift check
 ├── vendor                  <----- composer dependencies (gitignored)
 ├── composer.json           <----- the package manifest; MERGED with the compiler defaults on every run
 ├── phpunit.xml.dist        <----- test suite + coverage scope (auth/ only)
@@ -147,17 +147,22 @@ Three rules follow from that layout and matter more than anything else in this f
 make build
 ```
 
-That is the whole flow, and it is: check out the pinned submodules → build the `ondewo-php-proto-compiler:latest`
-image from the submodule → run it over the protos → hand the generated files back to your user → write the
-client version into `composer.json`.
+That is the whole flow, and it is: check out the pinned submodules → build the compiler image from the
+submodule, tagged with the compiler version (`ondewo-php-proto-compiler:5.15.5`, never `latest`, which other
+ONDEWO clients on the same docker host would overwrite with a different compiler) → run it over the protos →
+write the client version into `composer.json`.
 
-The generation step on its own is a single container run:
+The generation step is a single container run, which `make generate_ondewo_protos` assembles like this:
 
 ```bash
-docker run --rm \
-  -v $(pwd):/input-volume \
-  -v $(pwd):/output-volume \
-  ondewo-php-proto-compiler:latest ondewo-sip-api ondewo
+mkdir -p build/proto-compiler/output && cp -R auth build/proto-compiler/output/auth
+docker run --rm --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp -e TEMP_SRC_DIRECTORY=/tmp/compile -e COMPOSER_HOME=/tmp/composer-home -e COMPOSER_CACHE_READ_ONLY=1 \
+  -v "$(pwd)/ondewo-sip-api":/input-volume/ondewo-sip-api:ro \
+  -v "$(pwd)/composer.json":/input-volume/composer.json:ro \
+  -v "$(pwd)/build/proto-compiler/output":/output-volume \
+  ondewo-php-proto-compiler:5.15.5 ondewo-sip-api ondewo
+# then: src/ and composer.json are copied back from build/proto-compiler/output
 ```
 
 * The two positional arguments are `<relative_protos_dir> <target_subdir>`: the proto root inside the input
@@ -166,20 +171,20 @@ docker run --rm \
   protos that are actually imported.
 * There is **no `-it`**. It breaks every non-interactive caller with
   `cannot attach stdin to a TTY-enabled container because stdin is not a terminal`.
-* Input and output volume are both the repository root. The image copies the input volume into an internal
-  temporary directory and compiles there, so the mounted input is never mutated; it then writes `composer.json`,
-  `composer.lock`, `src/` and `vendor/` back here, wiping its own `src/` and `vendor/` first so a renamed or
-  deleted proto leaves no orphaned stub behind.
-* The container runs as root, so the files it writes are root-owned. `make build` chases that with
-  `make fix_generated_ownership`; run it by hand if you invoke docker directly.
+* The container runs as **your user**, so everything it writes is yours — no root-owned files and no `sudo`.
+  The `-e` overrides move the image's scratch copy and composer home out of the root-owned
+  `/image-data`, and let composer read the offline cache the image pre-warmed without writing to it.
+* The repository root is **not** mounted. The input volume gets exactly the proto root (read-only) and
+  `composer.json` (which the image merges with its defaults); the output volume is a scratch directory with a
+  copy of `auth/` (the image adds `auth/` to the shipped classmap only when it finds it there). `make` copies
+  `src/` (replaced wholesale, so a renamed or deleted proto leaves no orphaned stub) and the merged
+  `composer.json` back; the compiler's `vendor/` and `composer.lock` are discarded — `make install_dependencies`
+  resolves its own.
 
 To poke around inside the image, and only there, `-it` is correct:
 
 ```bash
-docker run -it --entrypoint /bin/bash \
-  -v $(pwd):/input-volume \
-  -v $(pwd):/output-volume \
-  ondewo-php-proto-compiler:latest
+docker run -it --entrypoint /bin/bash ondewo-php-proto-compiler:5.15.5
 ```
 
 ## Usage
@@ -349,9 +354,14 @@ A failed handshake ends the call with `$status->code === \Grpc\STATUS_UNAVAILABL
 ## Testing
 
 ```bash
-make ci        # what GitHub Actions runs: no submodules, no docker
+make ci        # what GitHub Actions' php jobs run: no submodules, no docker
 make test      # the same, plus `make check_build` against the ondewo-sip-api submodule
 ```
+
+`make check_build` compares the committed stubs with the pinned `ondewo-sip-api`: every `.proto` has generated
+code, and the rpcs the `.proto` files declare are exactly the method paths the `*Client.php` stubs call
+(`tools/check-generated-rpcs.pl`), so a stub that is stale against the api fails. GitHub Actions runs it in its
+own `stubs` job, which fetches only that submodule.
 
 `make ci` is `composer validate` → the credential-free [Packagist dry run](#what-is-verified-without-credentials)
 → `php -l` over the hand-written sources → PHPUnit with coverage → the coverage threshold gate. It runs on
@@ -364,11 +374,14 @@ What the suite actually asserts:
 | --- | --- |
 | `tests/Generated/GeneratedCodeTest.php` | A stub that does not load, a `GPBMetadata` descriptor whose `initOnce()` chain has a missing transitive import, a service whose client class was never generated, an empty `src/` |
 | `tests/Generated/MessageSerializationTest.php` | A field that never reaches the wire, a sub-message that loses its presence bit, a moved enum zero constant, a broken JSON mapping (including the integer path, which needs `ext-bcmath`) |
-| `tests/Generated/ServiceClientTest.php` | A stub that cannot be constructed, a missing or re-shaped RPC method, a unary RPC that silently became a streaming one |
+| `tests/Generated/ServiceSurfaceTest.php` | A service or rpc the generated descriptors declare without a callable stub, a streaming RPC generated with the wrong shape, a stub no descriptor declares. The expectations are **derived** from the `GPBMetadata` descriptors (`GeneratedServices`), not listed — only a few "must contain" pins remain |
+| `tests/Generated/ServiceClientTest.php` | A stub that cannot be constructed against a channel, with plain or bearer-token options — for every service the descriptors declare |
 | `tests/Auth/BearerTokenAuthenticatorTest.php` | Any regression in the hand-written auth surface |
 | `tests/Auth/ClientConfigTest.php` | Half a client identity reaching ext-grpc, an identity dropped on a plaintext channel, a PEM or key in a message or rendering, a wrong target or channel default |
 | `tests/Tls/MutualTlsHandshakeTest.php` | A broken real handshake: TLS, mutual TLS, CRLF PEMs and `[::1]` must connect; a missing or foreign client certificate, a wrong CA and the system roots against the test CA must fail as `UNAVAILABLE` |
-| `tests/ReleaseNotesTest.php` | A `RELEASE.md` heading or separator the release-notes slice would miss, i.e. a GitHub release with empty notes |
+| `tests/ReleaseNotesTest.php` | A `RELEASE.md` heading or separator the release-notes slice would miss (a GitHub release with empty notes), and an unanchored slice that takes the 9.1.10 entry for 9.1.1 |
+| `tests/ReleaseProcessTest.php` | The release contract: the step order of `make release`, the devops-accounts clone deleted before it starts, read-only preflight/verify, no `sudo`, no `gh auth login`, no moving image tags |
+| `tests/ReleaseCredentialsHygieneTest.php` | A credential on a command line (make, docker, curl, gh) or interpolated into a workflow `run:` line |
 
 The handshake test generates its PKI with ext-openssl at test time and needs `python3` with `grpcio` for its
 server (`tests/Tls/tls_test_server.py`; PHP has no gRPC server): `pip install grpcio`, or point
@@ -382,17 +395,52 @@ descriptor initialised by `GeneratedCodeTest`.
 ## Versioning and releasing
 
 `ONDEWO_SIP_VERSION` at the top of the `Makefile` is the single source of truth and **must match
-the ONDEWO SIP API in major and minor version**. `make update_composer_version` propagates it into
-`composer.json`; never edit that field by hand.
+the ONDEWO SIP API in major and minor version**. `make update_composer_version` (part of `make build`)
+propagates it into `composer.json`; never edit that field by hand.
 
 ```bash
 # bump ONDEWO_SIP_VERSION and the submodule pins, add a RELEASE.md entry, then:
 make ondewo_release
 ```
 
-`ondewo_release` checks that the release branch and tag are still free, fetches the credentials from the
-`ondewo-devops-accounts` repository and runs the release: build, commit, release branch, release tag, the
-GitHub release (whose notes are sliced out of `RELEASE.md` by the version heading) and finally `make publish`.
+### What a release does
+
+| Step | Target | Side effects |
+| --- | --- | --- |
+| 1 | `spc` | none — fails if `release/<V>` or tag `<V>` exists locally or on origin (`git ls-remote --exit-code`, exact refs), or Packagist already serves `<V>` |
+| 2 | `ondewo_release` | clones `ondewo-devops-accounts` into a private `mktemp -d` directory **outside** the repository, reads the three credentials, and **deletes the clone before the release starts** (a trap deletes it on any failure too). With `DEVOPS_ACCOUNT_DIR=<dir>` (ondewo-sip-api's driver passes its single clone) nothing is cloned or deleted |
+| 3 | `release_preflight` | none — host tools; no devops clone inside the repository; `spc`; a non-empty `RELEASE.md` entry under exactly `## Release ONDEWO SIP PHP Client <V>`; GitHub accepts `GITHUB_GH_TOKEN` and it may push here; Packagist accepts `PACKAGIST_USERNAME`/`PACKAGIST_API_TOKEN` and that account maintains the package (see below) |
+| 4 | `build` | submodules at their pins → compiler image → stubs → `composer.json` version |
+| 5 | `precommit_hooks_run_all_files` | none on success; a failing hook stops the release |
+| 6 | `install_dependencies install_dev_tools test` | the **full** suite: `composer validate`, the packaging dry run, `php -l`, `check_build` (incl. the rpc drift check) and PHPUnit with the coverage gate |
+| 7 | `git commit` | the local `PREPARING FOR RELEASE <V>` commit (a failing commit stops the release) |
+| 8 | `git push`, `create_release_branch`, `create_release_tag` | Packagist serves the **tag**, so it has to exist before the publish step |
+| 9 | `publish` | the Packagist update ping (`release.yml` pings again after re-testing the tag) |
+| 10 | `push_to_gh` | the GitHub release, notes sliced out of `RELEASE.md` (refuses empty notes) |
+| 11 | `release_verify` | none — the tag is on origin, the GitHub release has a non-empty body, the tag's `release.yml` run succeeded, and `https://repo.packagist.org/p2/ondewo/sip-client-php.json` lists `<V>`; polled `VERIFY_ATTEMPTS` (20) × `VERIFY_INTERVAL_S` (30 s) |
+
+`make -n ondewo_release` and `make -n release` print this plan without cloning or pushing anything.
+`release_preflight` and `release_verify` can be run on their own at any time; both only read. Run standalone
+with `DEVOPS_ACCOUNT_DIR=<absolute path of a devops-accounts clone>` (as ondewo-sip-api's driver does), they
+load each credential they need from that directory when the environment does not already carry it — into
+their own shell only, never onto a command line or into the log.
+
+**Credentials reach only the steps that use them.** There is no bare `export` in the `Makefile`: the credentials
+travel in the environment `ondewo_release` hands to `make release`, every step that needs none of them (build,
+pre-commit, composer, phpunit, git) runs under `env -u …` (`WITHOUT_CREDENTIALS`), and gh gets the token per
+call as `GH_TOKEN=… gh …` — nothing runs `gh auth login`, so no token is left in `~/.config/gh` afterwards.
+
+**Host requirements:** docker, make, git, perl (with the core module `JSON::PP`) and curl. Everything else
+comes from a pinned image when the host lacks it: php and composer from `tools/php.Dockerfile`, gh (2.100.0)
+and pre-commit (4.6.2) from `tools/release-tools.Dockerfile`. All containers run as the invoking user, so no
+step needs `sudo`.
+
+**What the Packagist preflight proves**, without changing anything on Packagist: it POSTs to the update API
+with the real credentials but a repository url that matches no package. Packagist authenticates first —
+`403 Missing or invalid username/apiToken` for bad credentials — and then answers `404 Could not find a
+package`, so nothing is crawled. A second, public read of
+`https://packagist.org/packages/ondewo/sip-client-php.json` checks that the account is a maintainer of the
+package, which is what the real ping needs.
 
 ## Publishing to Packagist
 
@@ -408,9 +456,10 @@ and only the second one is a command:
 make publish    # validate the package, then POST to https://packagist.org/api/update-package
 ```
 
-`make publish` refuses to run without credentials, then runs the full dry run, then pings the API and fails on
-anything but an HTTP 200 carrying `{"status":"success"}`. It is wired into `make release`, so a normal
-`make ondewo_release` needs no extra step.
+`make publish` refuses to run without credentials, then runs the full dry run (without the credentials in its
+environment), then pings the API and fails on anything but an HTTP 200/202 carrying `{"status":"success"}`.
+It is wired into `make release`, so a normal `make ondewo_release` needs no extra step — and `make
+release_verify` then waits until Packagist's p2 metadata actually lists the version.
 
 ### One-time setup (a human, once per package)
 
@@ -436,9 +485,9 @@ None of the automation can do these; they need a browser and ownership of the ON
 | `PACKAGIST_API_TOKEN` | that account's API token, from [packagist.org/profile](https://packagist.org/profile/) → *Show API token* | `ondewo-devops-accounts` → `account_packagist.env`, and the GitHub repository secret of the same name |
 | `GITHUB_GH_TOKEN` | the token `gh release create` authenticates with | `ondewo-devops-accounts` → `account_github.env` (already in use) |
 
-Both Packagist variables default to an `ENTER_HERE_YOUR_…` placeholder in the `Makefile` and are only ever
-supplied at runtime — `make ondewo_release` reads them out of the devops-accounts clone, the release workflow
-out of GitHub secrets. Every recipe that carries one is `@`-prefixed so it never reaches a build log, and
+All three are only ever supplied at runtime, through the environment — `make ondewo_release` reads them out of
+the devops-accounts clone (and deletes the clone before the release starts), the release workflow out of
+GitHub secrets. Every recipe that carries one is `@`-prefixed so it never reaches a build log, and
 `make TEST` prints `<set>` / `<unset>` rather than the value.
 
 ### What is verified without credentials
@@ -454,8 +503,11 @@ out of GitHub secrets. Every recipe that carries one is `@`-prefixed so it never
 | `check_packagist_payload` | the update request pointing at the wrong repository — the API identifies the package by its VCS url, not by its composer name |
 
 `.github/workflows/release.yml` runs on a `X.Y.Z` tag push and does the same checks plus the full test suite
-before it pings the API. If either secret is missing it fails in its first step with an explicit
-`::error::` naming the secret, rather than posting an unauthenticated request and reporting success.
+before it pings the API. If either `PACKAGIST_*` repository secret is missing, the run does **not** go red:
+the tag is still tested, the ping is skipped, and the run ends with a `::warning::` and a job-summary section
+naming the missing secret. The ping `make release` sent with the devops-accounts credentials is the
+authoritative one, and `make release_verify` checks the outcome where it matters — Packagist's p2 metadata —
+so a missing secret only removes a redundant second ping. Never an unauthenticated request.
 
 See [RELEASE.md](RELEASE.md) for the release history and [CONTRIBUTING.md](CONTRIBUTING.md) for how to
 contribute.
