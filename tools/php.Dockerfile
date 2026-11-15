@@ -14,10 +14,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git unzip zlib1g-dev python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN MAKEFLAGS=-j"$(nproc)" pecl install grpc-1.84.0 pcov-1.0.12 \
+RUN MAKEFLAGS=-j"$(nproc)" pecl install grpc-1.85.0 pcov-1.0.12 \
     && docker-php-ext-enable grpc pcov \
     && docker-php-ext-install bcmath
 
-RUN python3 -m pip install --no-cache-dir --break-system-packages grpcio==1.84.2
+RUN python3 -m pip install --no-cache-dir --break-system-packages grpcio==1.85.1
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer

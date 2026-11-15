@@ -70,7 +70,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
+          php-version: '8.2'
           extensions: grpc, bcmath
           coverage: pcov
           tools: composer:v2
@@ -93,7 +93,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install grpcio for the TLS handshake test server
-        run: python -m pip install grpcio==1.84.2
+        run: python -m pip install grpcio==1.85.1
 
       # Packagist serves whatever is at the tag. Prove the tag is good BEFORE asking it to crawl.
       - name: Test with coverage (fails below 100% of the hand-written code)
