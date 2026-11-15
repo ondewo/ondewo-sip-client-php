@@ -56,7 +56,7 @@ ONDEWO_SIP_VERSION=5.5.2
 # Submodule pins. Both are checked out by `make checkout_defined_submodule_versions`, so the
 # stubs of a release are always reproducible from the two commits recorded here.
 ONDEWO_SIP_API_GIT_BRANCH=tags/5.5.2
-ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.15.7
+ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/5.16.0
 
 # Submodule directories - both sit at the repository root, see .gitmodules
 ONDEWO_SIP_API_DIR=ondewo-sip-api
