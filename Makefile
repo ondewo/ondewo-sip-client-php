@@ -335,7 +335,7 @@ install_dependencies: php_toolchain ## Resolve and install the composer dependen
 
 install_dev_tools: php_toolchain ## Resolve and install PHPUnit + the coverage gate into tools/vendor (needs network)
 # No lock file is committed for tools/: it would pin ONE phpunit major, and this repository is
-#	tested on php 8.1 (phpunit 10) through 8.4 (phpunit 11) - the constraint has to be re-resolved
+#	tested on php 8.2 through 8.4 - the constraint has to be re-resolved
 #	per interpreter, which is what `update` does and `install` cannot.
 	${COMPOSER_CMD} update --working-dir=${TOOLS_DIR} --prefer-dist --no-interaction --no-progress
 

@@ -36,7 +36,7 @@ The only hand-written PHP is the bearer-token authentication surface in `auth/`,
 
 ## Requirements
 
-* PHP >= 8.1
+* PHP >= 8.2
 * The **grpc** PHP extension (`ext-grpc`) — every generated `<Service>Client` extends `\Grpc\BaseStub`
 * The **bcmath** PHP extension (`ext-bcmath`) — only to parse integers out of the JSON wire
   format; `google/protobuf` merely *suggests* it, so `mergeFromJsonString()` on a message with an
@@ -365,7 +365,7 @@ own `stubs` job, which fetches only that submodule.
 
 `make ci` is `composer validate` → the credential-free [Packagist dry run](#what-is-verified-without-credentials)
 → `php -l` over the hand-written sources → PHPUnit with coverage → the coverage threshold gate. It runs on
-PHP 8.1 and 8.4 in GitHub Actions, against the **committed** stubs: no docker image is built and no proto
+PHP 8.2 and 8.4 in GitHub Actions, against the **committed** stubs: no docker image is built and no proto
 compiler runs there.
 
 What the suite actually asserts:
