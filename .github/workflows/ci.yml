@@ -82,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The lowest and the highest interpreter composer.json claims support for (grpc/grpc >= 1.82.3,
+        # The lowest and the highest interpreter composer.json claims support for (grpc/grpc >= 1.84.1,
         # the releases clear of PKSA-pwrg-9hf1-r8jr, need PHP >= 8.2).
         php-version: ['8.2', '8.4']
     steps:
