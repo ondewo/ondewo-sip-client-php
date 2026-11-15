@@ -25,7 +25,7 @@
   "require": {
     "ext-grpc": "*",
     "google/protobuf": "4.33.6",
-    "grpc/grpc": "1.82.0",
+    "grpc/grpc": "1.85.0",
     "php": ">=8.1.0"
   },
   "suggest": {
