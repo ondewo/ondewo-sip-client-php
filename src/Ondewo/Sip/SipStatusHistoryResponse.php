@@ -56,7 +56,7 @@ class SipStatusHistoryResponse extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipStatus[] $var
      * @return $this
      */
-    public function setStatusHistory($var)
+    public function setStatusHistory(array|RepeatedField $var)
     {
         $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::MESSAGE, \Ondewo\Sip\SipStatus::class);
         $this->status_history = $arr;

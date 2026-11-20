@@ -48,6 +48,20 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>bool participants_present = 4;</code>
      */
     protected $participants_present = false;
+    /**
+     * <p>Optional, only with <code>MEDIA_CONTROL_OWNER_PARTICIPANT</code> (any other owner, an outcome other than
+     * <code>SIP_WARM_TRANSFER_OUTCOME_DECLINED</code> / <code>SIP_WARM_TRANSFER_OUTCOME_UNREACHABLE</code>, or an empty
+     * <code>request_id</code> is refused with <code>exception_name=InvalidWarmTransferOutcomeNotice</code> and changes
+     * nothing). The outcome of a warm transfer that the bot must tell the caller, sent with the request that releases
+     * the participant hold, so the bot speaks only once it can.</p>
+     * <p>Handed to the speech-to-speech pipeline after the level, also when the level did not change; the answer is
+     * returned in <code>SipStatus.warm_transfer_outcome_notice_status</code>. A notice the pipeline did not answer is
+     * kept and handed over again until it answers, and dropped when the call ends. Unset (default): no notice, exactly
+     * as before this field existed.</p>
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipWarmTransferOutcomeNotice warm_transfer_outcome = 5;</code>
+     */
+    protected $warm_transfer_outcome = null;
 
     /**
      * Constructor.
@@ -71,6 +85,16 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      *           into a conference bridge transfers every party in it. A request that would mark participants present while a
      *           transfer of the call is in flight is refused with <code>exception_name=TransferInProgress</code> and changes
      *           nothing. Cleared when the call ends</p>
+     *     @type \Ondewo\Sip\SipWarmTransferOutcomeNotice $warm_transfer_outcome
+     *           <p>Optional, only with <code>MEDIA_CONTROL_OWNER_PARTICIPANT</code> (any other owner, an outcome other than
+     *           <code>SIP_WARM_TRANSFER_OUTCOME_DECLINED</code> / <code>SIP_WARM_TRANSFER_OUTCOME_UNREACHABLE</code>, or an empty
+     *           <code>request_id</code> is refused with <code>exception_name=InvalidWarmTransferOutcomeNotice</code> and changes
+     *           nothing). The outcome of a warm transfer that the bot must tell the caller, sent with the request that releases
+     *           the participant hold, so the bot speaks only once it can.</p>
+     *           <p>Handed to the speech-to-speech pipeline after the level, also when the level did not change; the answer is
+     *           returned in <code>SipStatus.warm_transfer_outcome_notice_status</code>. A notice the pipeline did not answer is
+     *           kept and handed over again until it answers, and dropped when the call ends. Unset (default): no notice, exactly
+     *           as before this field existed.</p>
      * }
      */
     public function __construct($data = NULL) {
@@ -82,7 +106,7 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * <code>MEDIA_CONTROL_SETTING_ON</code>: the bot speaks. <code>MEDIA_CONTROL_SETTING_OFF</code>: the bot is muted
      *
      * Generated from protobuf field <code>.ondewo.sip.MediaControlSetting bot_voice = 1;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\MediaControlSetting}
      */
     public function getBotVoice()
     {
@@ -93,10 +117,10 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * <code>MEDIA_CONTROL_SETTING_ON</code>: the bot speaks. <code>MEDIA_CONTROL_SETTING_OFF</code>: the bot is muted
      *
      * Generated from protobuf field <code>.ondewo.sip.MediaControlSetting bot_voice = 1;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\MediaControlSetting}
      * @return $this
      */
-    public function setBotVoice($var)
+    public function setBotVoice(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\MediaControlSetting::class);
         $this->bot_voice = $var;
@@ -109,7 +133,7 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * listening is paused
      *
      * Generated from protobuf field <code>.ondewo.sip.MediaControlSetting bot_listening = 2;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\MediaControlSetting}
      */
     public function getBotListening()
     {
@@ -121,10 +145,10 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * listening is paused
      *
      * Generated from protobuf field <code>.ondewo.sip.MediaControlSetting bot_listening = 2;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\MediaControlSetting}
      * @return $this
      */
-    public function setBotListening($var)
+    public function setBotListening(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\MediaControlSetting::class);
         $this->bot_listening = $var;
@@ -136,7 +160,7 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * Owner whose hold is set
      *
      * Generated from protobuf field <code>.ondewo.sip.MediaControlOwner owner = 3;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\MediaControlOwner}
      */
     public function getOwner()
     {
@@ -147,10 +171,10 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * Owner whose hold is set
      *
      * Generated from protobuf field <code>.ondewo.sip.MediaControlOwner owner = 3;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\MediaControlOwner}
      * @return $this
      */
-    public function setOwner($var)
+    public function setOwner(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\MediaControlOwner::class);
         $this->owner = $var;
@@ -190,10 +214,60 @@ class SipSetCallMediaControlRequest extends \Google\Protobuf\Internal\Message
      * @param bool $var
      * @return $this
      */
-    public function setParticipantsPresent($var)
+    public function setParticipantsPresent(bool $var)
     {
-        GPBUtil::checkBool($var);
         $this->participants_present = $var;
+
+        return $this;
+    }
+
+    /**
+     * <p>Optional, only with <code>MEDIA_CONTROL_OWNER_PARTICIPANT</code> (any other owner, an outcome other than
+     * <code>SIP_WARM_TRANSFER_OUTCOME_DECLINED</code> / <code>SIP_WARM_TRANSFER_OUTCOME_UNREACHABLE</code>, or an empty
+     * <code>request_id</code> is refused with <code>exception_name=InvalidWarmTransferOutcomeNotice</code> and changes
+     * nothing). The outcome of a warm transfer that the bot must tell the caller, sent with the request that releases
+     * the participant hold, so the bot speaks only once it can.</p>
+     * <p>Handed to the speech-to-speech pipeline after the level, also when the level did not change; the answer is
+     * returned in <code>SipStatus.warm_transfer_outcome_notice_status</code>. A notice the pipeline did not answer is
+     * kept and handed over again until it answers, and dropped when the call ends. Unset (default): no notice, exactly
+     * as before this field existed.</p>
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipWarmTransferOutcomeNotice warm_transfer_outcome = 5;</code>
+     * @return \Ondewo\Sip\SipWarmTransferOutcomeNotice|null
+     */
+    public function getWarmTransferOutcome()
+    {
+        return $this->warm_transfer_outcome;
+    }
+
+    public function hasWarmTransferOutcome()
+    {
+        return isset($this->warm_transfer_outcome);
+    }
+
+    public function clearWarmTransferOutcome()
+    {
+        unset($this->warm_transfer_outcome);
+    }
+
+    /**
+     * <p>Optional, only with <code>MEDIA_CONTROL_OWNER_PARTICIPANT</code> (any other owner, an outcome other than
+     * <code>SIP_WARM_TRANSFER_OUTCOME_DECLINED</code> / <code>SIP_WARM_TRANSFER_OUTCOME_UNREACHABLE</code>, or an empty
+     * <code>request_id</code> is refused with <code>exception_name=InvalidWarmTransferOutcomeNotice</code> and changes
+     * nothing). The outcome of a warm transfer that the bot must tell the caller, sent with the request that releases
+     * the participant hold, so the bot speaks only once it can.</p>
+     * <p>Handed to the speech-to-speech pipeline after the level, also when the level did not change; the answer is
+     * returned in <code>SipStatus.warm_transfer_outcome_notice_status</code>. A notice the pipeline did not answer is
+     * kept and handed over again until it answers, and dropped when the call ends. Unset (default): no notice, exactly
+     * as before this field existed.</p>
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipWarmTransferOutcomeNotice warm_transfer_outcome = 5;</code>
+     * @param \Ondewo\Sip\SipWarmTransferOutcomeNotice $var
+     * @return $this
+     */
+    public function setWarmTransferOutcome(\Ondewo\Sip\SipWarmTransferOutcomeNotice|null $var)
+    {
+        $this->warm_transfer_outcome = $var;
 
         return $this;
     }

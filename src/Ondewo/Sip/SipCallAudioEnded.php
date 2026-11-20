@@ -50,7 +50,7 @@ class SipCallAudioEnded extends \Google\Protobuf\Internal\Message
      * Why the stream ended
      *
      * Generated from protobuf field <code>.ondewo.sip.SipCallAudioEndReason reason = 1;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\SipCallAudioEndReason}
      */
     public function getReason()
     {
@@ -61,10 +61,10 @@ class SipCallAudioEnded extends \Google\Protobuf\Internal\Message
      * Why the stream ended
      *
      * Generated from protobuf field <code>.ondewo.sip.SipCallAudioEndReason reason = 1;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\SipCallAudioEndReason}
      * @return $this
      */
-    public function setReason($var)
+    public function setReason(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\SipCallAudioEndReason::class);
         $this->reason = $var;
@@ -90,9 +90,9 @@ class SipCallAudioEnded extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setDetail($var)
+    public function setDetail(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->detail = $var;
 
         return $this;

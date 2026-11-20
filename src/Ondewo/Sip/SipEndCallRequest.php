@@ -76,9 +76,8 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
      * @param bool $var
      * @return $this
      */
-    public function setHardHangup($var)
+    public function setHardHangup(bool $var)
     {
-        GPBUtil::checkBool($var);
         $this->hard_hangup = $var;
 
         return $this;
@@ -88,7 +87,7 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
      * Optional: reason for ending the call. Leave unset for an ordinary hangup
      *
      * Generated from protobuf field <code>.ondewo.sip.SipEndCallRequest.EndCallReason end_reason = 2;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\SipEndCallRequest\EndCallReason}
      */
     public function getEndReason()
     {
@@ -99,10 +98,10 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
      * Optional: reason for ending the call. Leave unset for an ordinary hangup
      *
      * Generated from protobuf field <code>.ondewo.sip.SipEndCallRequest.EndCallReason end_reason = 2;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\SipEndCallRequest\EndCallReason}
      * @return $this
      */
-    public function setEndReason($var)
+    public function setEndReason(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\SipEndCallRequest\EndCallReason::class);
         $this->end_reason = $var;
@@ -142,9 +141,8 @@ class SipEndCallRequest extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\AnsweringMachineDetectionResult $var
      * @return $this
      */
-    public function setAmdResult($var)
+    public function setAmdResult(\Ondewo\Sip\AnsweringMachineDetectionResult|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\AnsweringMachineDetectionResult::class);
         $this->amd_result = $var;
 
         return $this;

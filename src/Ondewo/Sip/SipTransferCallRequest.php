@@ -55,6 +55,23 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>uint32 outcome_timeout_ms = 3;</code>
      */
     protected $outcome_timeout_ms = 0;
+    /**
+     * <p>Optional. Claims the transfer parked in <code>SipStatus.delegated_transfer</code> (see
+     * <code>SipTransferDelegation</code>). <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code> (default): an ordinary
+     * transfer, exactly as before this field existed.</p>
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipTransferDelegation delegation = 4;</code>
+     */
+    protected $delegation = 0;
+    /**
+     * <p>Required with every <code>delegation</code> other than <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code>, ignored
+     * otherwise: must equal <code>SipStatus.delegated_transfer.request_id</code> of the parked transfer, otherwise the
+     * request is refused with <code>exception_name=DelegatedRequestMismatch</code> and nothing is sent. Empty (default):
+     * no delegated transfer is claimed.</p>
+     *
+     * Generated from protobuf field <code>string delegated_request_id = 5;</code>
+     */
+    protected $delegated_request_id = '';
 
     /**
      * Constructor.
@@ -89,6 +106,15 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      *           </ul>
      *           <p>A <code>202</code> does not mean the target answered: when the dialplan's dial to the target then fails (busy, no
      *           answer, unreachable) the caller is lost. Validate targets up front, or use a WARM transfer.</p>
+     *     @type int $delegation
+     *           <p>Optional. Claims the transfer parked in <code>SipStatus.delegated_transfer</code> (see
+     *           <code>SipTransferDelegation</code>). <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code> (default): an ordinary
+     *           transfer, exactly as before this field existed.</p>
+     *     @type string $delegated_request_id
+     *           <p>Required with every <code>delegation</code> other than <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code>, ignored
+     *           otherwise: must equal <code>SipStatus.delegated_transfer.request_id</code> of the parked transfer, otherwise the
+     *           request is refused with <code>exception_name=DelegatedRequestMismatch</code> and nothing is sent. Empty (default):
+     *           no delegated transfer is claimed.</p>
      * }
      */
     public function __construct($data = NULL) {
@@ -114,9 +140,9 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setTransferId($var)
+    public function setTransferId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->transfer_id = $var;
 
         return $this;
@@ -144,7 +170,7 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      * @param array|\Google\Protobuf\Internal\MapField $var
      * @return $this
      */
-    public function setHeaders($var)
+    public function setHeaders(array|\Google\Protobuf\Internal\MapField $var)
     {
         $arr = GPBUtil::checkMapField($var, \Google\Protobuf\Internal\GPBType::STRING, \Google\Protobuf\Internal\GPBType::STRING);
         $this->headers = $arr;
@@ -208,10 +234,72 @@ class SipTransferCallRequest extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setOutcomeTimeoutMs($var)
+    public function setOutcomeTimeoutMs(int $var)
     {
         GPBUtil::checkUint32($var);
         $this->outcome_timeout_ms = $var;
+
+        return $this;
+    }
+
+    /**
+     * <p>Optional. Claims the transfer parked in <code>SipStatus.delegated_transfer</code> (see
+     * <code>SipTransferDelegation</code>). <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code> (default): an ordinary
+     * transfer, exactly as before this field existed.</p>
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipTransferDelegation delegation = 4;</code>
+     * @return int one of the values in {@see \Ondewo\Sip\SipTransferDelegation}
+     */
+    public function getDelegation()
+    {
+        return $this->delegation;
+    }
+
+    /**
+     * <p>Optional. Claims the transfer parked in <code>SipStatus.delegated_transfer</code> (see
+     * <code>SipTransferDelegation</code>). <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code> (default): an ordinary
+     * transfer, exactly as before this field existed.</p>
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipTransferDelegation delegation = 4;</code>
+     * @param int $var one of the values in {@see \Ondewo\Sip\SipTransferDelegation}
+     * @return $this
+     */
+    public function setDelegation(int $var)
+    {
+        GPBUtil::checkEnum($var, \Ondewo\Sip\SipTransferDelegation::class);
+        $this->delegation = $var;
+
+        return $this;
+    }
+
+    /**
+     * <p>Required with every <code>delegation</code> other than <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code>, ignored
+     * otherwise: must equal <code>SipStatus.delegated_transfer.request_id</code> of the parked transfer, otherwise the
+     * request is refused with <code>exception_name=DelegatedRequestMismatch</code> and nothing is sent. Empty (default):
+     * no delegated transfer is claimed.</p>
+     *
+     * Generated from protobuf field <code>string delegated_request_id = 5;</code>
+     * @return string
+     */
+    public function getDelegatedRequestId()
+    {
+        return $this->delegated_request_id;
+    }
+
+    /**
+     * <p>Required with every <code>delegation</code> other than <code>SIP_TRANSFER_DELEGATION_UNSPECIFIED</code>, ignored
+     * otherwise: must equal <code>SipStatus.delegated_transfer.request_id</code> of the parked transfer, otherwise the
+     * request is refused with <code>exception_name=DelegatedRequestMismatch</code> and nothing is sent. Empty (default):
+     * no delegated transfer is claimed.</p>
+     *
+     * Generated from protobuf field <code>string delegated_request_id = 5;</code>
+     * @param string $var
+     * @return $this
+     */
+    public function setDelegatedRequestId(string $var)
+    {
+        GPBUtil::checkString($var, true);
+        $this->delegated_request_id = $var;
 
         return $this;
     }

@@ -70,9 +70,8 @@ class SipReportAnsweringMachineDetectedRequest extends \Google\Protobuf\Internal
      * @param \Ondewo\Sip\AnsweringMachineDetectionResult $var
      * @return $this
      */
-    public function setAmdResult($var)
+    public function setAmdResult(\Ondewo\Sip\AnsweringMachineDetectionResult|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\AnsweringMachineDetectionResult::class);
         $this->amd_result = $var;
 
         return $this;

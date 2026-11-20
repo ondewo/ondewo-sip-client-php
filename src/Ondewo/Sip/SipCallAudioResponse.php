@@ -62,9 +62,8 @@ class SipCallAudioResponse extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipCallAudioStarted $var
      * @return $this
      */
-    public function setStarted($var)
+    public function setStarted(\Ondewo\Sip\SipCallAudioStarted|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\SipCallAudioStarted::class);
         $this->writeOneof(1, $var);
 
         return $this;
@@ -93,9 +92,8 @@ class SipCallAudioResponse extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipCallAudioFrame $var
      * @return $this
      */
-    public function setAudio($var)
+    public function setAudio(\Ondewo\Sip\SipCallAudioFrame|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\SipCallAudioFrame::class);
         $this->writeOneof(2, $var);
 
         return $this;
@@ -124,9 +122,8 @@ class SipCallAudioResponse extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipCallAudioStats $var
      * @return $this
      */
-    public function setStats($var)
+    public function setStats(\Ondewo\Sip\SipCallAudioStats|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\SipCallAudioStats::class);
         $this->writeOneof(3, $var);
 
         return $this;
@@ -155,9 +152,8 @@ class SipCallAudioResponse extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipCallAudioEnded $var
      * @return $this
      */
-    public function setEnded($var)
+    public function setEnded(\Ondewo\Sip\SipCallAudioEnded|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\SipCallAudioEnded::class);
         $this->writeOneof(4, $var);
 
         return $this;

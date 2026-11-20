@@ -88,7 +88,7 @@ class SipCallAudioStats extends \Google\Protobuf\Internal\Message
      * @param int|string $var
      * @return $this
      */
-    public function setFramesSent($var)
+    public function setFramesSent(int|string $var)
     {
         GPBUtil::checkUint64($var);
         $this->frames_sent = $var;
@@ -114,7 +114,7 @@ class SipCallAudioStats extends \Google\Protobuf\Internal\Message
      * @param int|string $var
      * @return $this
      */
-    public function setFramesDropped($var)
+    public function setFramesDropped(int|string $var)
     {
         GPBUtil::checkUint64($var);
         $this->frames_dropped = $var;
@@ -140,7 +140,7 @@ class SipCallAudioStats extends \Google\Protobuf\Internal\Message
      * @param int|string $var
      * @return $this
      */
-    public function setFramesReceived($var)
+    public function setFramesReceived(int|string $var)
     {
         GPBUtil::checkUint64($var);
         $this->frames_received = $var;
@@ -166,7 +166,7 @@ class SipCallAudioStats extends \Google\Protobuf\Internal\Message
      * @param int|string $var
      * @return $this
      */
-    public function setUnderruns($var)
+    public function setUnderruns(int|string $var)
     {
         GPBUtil::checkUint64($var);
         $this->underruns = $var;
@@ -192,7 +192,7 @@ class SipCallAudioStats extends \Google\Protobuf\Internal\Message
      * @param int|string $var
      * @return $this
      */
-    public function setFramesDiscarded($var)
+    public function setFramesDiscarded(int|string $var)
     {
         GPBUtil::checkUint64($var);
         $this->frames_discarded = $var;

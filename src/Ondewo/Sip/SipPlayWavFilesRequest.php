@@ -56,7 +56,7 @@ class SipPlayWavFilesRequest extends \Google\Protobuf\Internal\Message
      * @param string[] $var
      * @return $this
      */
-    public function setWavFiles($var)
+    public function setWavFiles(array|RepeatedField $var)
     {
         $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::BYTES);
         $this->wav_files = $arr;

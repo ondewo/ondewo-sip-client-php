@@ -64,9 +64,9 @@ class SipCallAudioFrame extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setPcmS16Le($var)
+    public function setPcmS16Le(string $var)
     {
-        GPBUtil::checkString($var, False);
+        GPBUtil::checkString($var, false);
         $this->pcm_s16le = $var;
 
         return $this;
@@ -90,7 +90,7 @@ class SipCallAudioFrame extends \Google\Protobuf\Internal\Message
      * @param int|string $var
      * @return $this
      */
-    public function setSequence($var)
+    public function setSequence(int|string $var)
     {
         GPBUtil::checkUint64($var);
         $this->sequence = $var;

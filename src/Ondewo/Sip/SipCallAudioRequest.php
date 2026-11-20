@@ -60,9 +60,8 @@ class SipCallAudioRequest extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipCallAudioConfig $var
      * @return $this
      */
-    public function setConfig($var)
+    public function setConfig(\Ondewo\Sip\SipCallAudioConfig|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\SipCallAudioConfig::class);
         $this->writeOneof(1, $var);
 
         return $this;
@@ -91,9 +90,8 @@ class SipCallAudioRequest extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\SipCallAudioFrame $var
      * @return $this
      */
-    public function setAudio($var)
+    public function setAudio(\Ondewo\Sip\SipCallAudioFrame|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\SipCallAudioFrame::class);
         $this->writeOneof(2, $var);
 
         return $this;
@@ -122,9 +120,8 @@ class SipCallAudioRequest extends \Google\Protobuf\Internal\Message
      * @param bool $var
      * @return $this
      */
-    public function setAgentMuted($var)
+    public function setAgentMuted(bool $var)
     {
-        GPBUtil::checkBool($var);
         $this->writeOneof(3, $var);
 
         return $this;

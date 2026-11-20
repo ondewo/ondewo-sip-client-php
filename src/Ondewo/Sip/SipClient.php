@@ -37,7 +37,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Ondewo\Sip\SipStartSessionRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipStartSession(\Ondewo\Sip\SipStartSessionRequest $argument,
       $metadata = [], $options = []) {
@@ -52,7 +52,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipEndSession(\Google\Protobuf\GPBEmpty $argument,
       $metadata = [], $options = []) {
@@ -67,7 +67,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Ondewo\Sip\SipStartCallRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipStartCall(\Ondewo\Sip\SipStartCallRequest $argument,
       $metadata = [], $options = []) {
@@ -82,7 +82,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Ondewo\Sip\SipEndCallRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipEndCall(\Ondewo\Sip\SipEndCallRequest $argument,
       $metadata = [], $options = []) {
@@ -105,10 +105,19 @@ class SipClient extends \Grpc\BaseStub {
      * party in it, the invited participant included. The refusal is RETURNED as <code>TRANSFER_CALL_FAILED</code> with
      * <code>exception_name=ParticipantsPresent</code> and <code>description = reason=participants-present</code>; nothing
      * is sent and the call is kept.</p>
+     * <p>Transfer delegation (see <code>SipTransferDelegation</code>): in a container started with
+     * <code>SIP_TRANSFER_DELEGATION_ACTIVE=True</code> a transfer that the in-container speech-to-speech pipeline asks for
+     * on a connected call is not sent. It is parked in <code>SipStatus.delegated_transfer</code> and RETURNED as
+     * <code>TRANSFER_CALL_FAILED</code> with <code>exception_name=TransferDelegated</code> and
+     * <code>description = reason=delegated-to-vtsi</code>; the call is kept. A client (ONDEWO VTSI) then claims it with
+     * <code>delegation</code> and <code>delegated_request_id</code>. A second transfer of the pipeline while one is
+     * parked is refused with <code>exception_name=TransferInProgress</code>. Without that environment variable, and
+     * for every request with <code>delegation = SIP_TRANSFER_DELEGATION_UNSPECIFIED</code> from any other peer, the
+     * transfer is sent as before.</p>
      * @param \Ondewo\Sip\SipTransferCallRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipTransferCall(\Ondewo\Sip\SipTransferCallRequest $argument,
       $metadata = [], $options = []) {
@@ -123,7 +132,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Ondewo\Sip\SipRegisterAccountRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipRegisterAccount(\Ondewo\Sip\SipRegisterAccountRequest $argument,
       $metadata = [], $options = []) {
@@ -138,7 +147,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipGetSipStatus(\Google\Protobuf\GPBEmpty $argument,
       $metadata = [], $options = []) {
@@ -153,7 +162,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatusHistoryResponse>
      */
     public function SipGetSipStatusHistory(\Google\Protobuf\GPBEmpty $argument,
       $metadata = [], $options = []) {
@@ -170,7 +179,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Ondewo\Sip\SipPlayWavFilesRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipPlayWavFiles(\Ondewo\Sip\SipPlayWavFilesRequest $argument,
       $metadata = [], $options = []) {
@@ -188,7 +197,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipMute(\Google\Protobuf\GPBEmpty $argument,
       $metadata = [], $options = []) {
@@ -204,7 +213,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Google\Protobuf\GPBEmpty $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipUnMute(\Google\Protobuf\GPBEmpty $argument,
       $metadata = [], $options = []) {
@@ -223,7 +232,7 @@ class SipClient extends \Grpc\BaseStub {
      * @param \Ondewo\Sip\SipReportAnsweringMachineDetectedRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipReportAnsweringMachineDetected(\Ondewo\Sip\SipReportAnsweringMachineDetectedRequest $argument,
       $metadata = [], $options = []) {
@@ -245,10 +254,14 @@ class SipClient extends \Grpc\BaseStub {
      * <code>NoOngoingCall</code>, <code>AmdInProgress</code>, <code>CsiMediaControlFailed</code>) and never assigned to
      * the shared status. When the pipeline refuses or fails, a requested pause is rolled back and a requested mute is
      * kept (the safe direction); the returned fields carry the actual level.</p>
+     * <p>A request may carry a <code>warm_transfer_outcome</code> notice (participant owner only, refused otherwise with
+     * <code>exception_name=InvalidWarmTransferOutcomeNotice</code>). The notice is handed to the speech-to-speech
+     * pipeline whether or not the level changed, and the answer of the pipeline is returned in
+     * <code>SipStatus.warm_transfer_outcome_notice_status</code>.</p>
      * @param \Ondewo\Sip\SipSetCallMediaControlRequest $argument input argument
      * @param array $metadata metadata
      * @param array $options call options
-     * @return \Grpc\UnaryCall
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
      */
     public function SipSetCallMediaControl(\Ondewo\Sip\SipSetCallMediaControlRequest $argument,
       $metadata = [], $options = []) {
@@ -277,6 +290,29 @@ class SipClient extends \Grpc\BaseStub {
     public function SipStreamCallAudio($metadata = [], $options = []) {
         return $this->_bidiRequest('/ondewo.sip.Sip/SipStreamCallAudio',
         ['\Ondewo\Sip\SipCallAudioResponse','decode'],
+        $metadata, $options);
+    }
+
+    /**
+     * <p>Send DTMF keys into the ongoing connected call, as RFC 4733 telephone-events (e.g. to navigate an IVR the bot
+     * called, or for an operator).</p>
+     * <p>Metadata as for <code>SipSetCallMediaControl</code>: <code>x-ondewo-expected-call-id</code> must equal
+     * <code>SipStatus.call_id</code> of the ongoing call; a peer outside the container presents
+     * <code>x-ondewo-sip-call-control-token</code> when the container has one.</p>
+     * <p>Returns the live status. Refusals are RETURNED in <code>exception_name</code> / <code>description</code>
+     * (<code>CallScopeMismatch</code>, <code>CallControlUnauthenticated</code>, <code>NoOngoingCall</code>,
+     * <code>AmdInProgress</code>, <code>InvalidDtmf</code>) and never assigned to the shared status. The keys are never
+     * logged in clear.</p>
+     * @param \Ondewo\Sip\SipSendDtmfRequest $argument input argument
+     * @param array $metadata metadata
+     * @param array $options call options
+     * @return \Grpc\UnaryCall<\Ondewo\Sip\SipStatus>
+     */
+    public function SipSendDtmf(\Ondewo\Sip\SipSendDtmfRequest $argument,
+      $metadata = [], $options = []) {
+        return $this->_simpleRequest('/ondewo.sip.Sip/SipSendDtmf',
+        $argument,
+        ['\Ondewo\Sip\SipStatus', 'decode'],
         $metadata, $options);
     }
 

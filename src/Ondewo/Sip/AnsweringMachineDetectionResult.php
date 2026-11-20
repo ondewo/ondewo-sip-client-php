@@ -101,7 +101,7 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * Who or what answered the call
      *
      * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult.Verdict verdict = 1;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\AnsweringMachineDetectionResult\Verdict}
      */
     public function getVerdict()
     {
@@ -112,10 +112,10 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * Who or what answered the call
      *
      * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult.Verdict verdict = 1;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\AnsweringMachineDetectionResult\Verdict}
      * @return $this
      */
-    public function setVerdict($var)
+    public function setVerdict(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\AnsweringMachineDetectionResult\Verdict::class);
         $this->verdict = $var;
@@ -127,7 +127,7 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * Evidence that led to the verdict
      *
      * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult.Cause cause = 2;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\AnsweringMachineDetectionResult\Cause}
      */
     public function getCause()
     {
@@ -138,10 +138,10 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * Evidence that led to the verdict
      *
      * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult.Cause cause = 2;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\AnsweringMachineDetectionResult\Cause}
      * @return $this
      */
-    public function setCause($var)
+    public function setCause(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\AnsweringMachineDetectionResult\Cause::class);
         $this->cause = $var;
@@ -167,9 +167,8 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * @param float $var
      * @return $this
      */
-    public function setConfidence($var)
+    public function setConfidence(float $var)
     {
-        GPBUtil::checkFloat($var);
         $this->confidence = $var;
 
         return $this;
@@ -193,7 +192,7 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setDecisionMs($var)
+    public function setDecisionMs(int $var)
     {
         GPBUtil::checkInt32($var);
         $this->decision_ms = $var;
@@ -219,9 +218,9 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setRuleId($var)
+    public function setRuleId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->rule_id = $var;
 
         return $this;
@@ -245,7 +244,7 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * @param string[] $var
      * @return $this
      */
-    public function setMatchedCueIds($var)
+    public function setMatchedCueIds(array|RepeatedField $var)
     {
         $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::STRING);
         $this->matched_cue_ids = $arr;
@@ -257,7 +256,7 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * What was done because of the verdict
      *
      * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult.ActionTaken action_taken = 7;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\AnsweringMachineDetectionResult\ActionTaken}
      */
     public function getActionTaken()
     {
@@ -268,10 +267,10 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * What was done because of the verdict
      *
      * Generated from protobuf field <code>.ondewo.sip.AnsweringMachineDetectionResult.ActionTaken action_taken = 7;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\AnsweringMachineDetectionResult\ActionTaken}
      * @return $this
      */
-    public function setActionTaken($var)
+    public function setActionTaken(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\AnsweringMachineDetectionResult\ActionTaken::class);
         $this->action_taken = $var;
@@ -299,9 +298,9 @@ class AnsweringMachineDetectionResult extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setCallId($var)
+    public function setCallId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->call_id = $var;
 
         return $this;

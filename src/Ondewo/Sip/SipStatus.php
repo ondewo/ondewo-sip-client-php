@@ -122,6 +122,35 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>int32 sip_response_code = 16;</code>
      */
     protected $sip_response_code = 0;
+    /**
+     * The transfer parked for a client to claim (see <code>SipTransferDelegation</code>). Unset (empty) when no transfer
+     * is parked, which is always the case in a container started without <code>SIP_TRANSFER_DELEGATION_ACTIVE=True</code>.
+     * Call-scoped
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipDelegatedTransfer delegated_transfer = 17;</code>
+     */
+    protected $delegated_transfer = null;
+    /**
+     * <p>Optional features this container supports, as stable tokens. Fixed for the life of the container, so it is the
+     * same on every status. Empty (default): none of them, as for a container built before this field existed. Clients
+     * ignore tokens they do not know.</p>
+     * <ul>
+     *   <li><code>warm-transfer-outcome-notice</code>: <code>SipSetCallMediaControlRequest.warm_transfer_outcome</code>
+     *   is handed to the speech-to-speech pipeline, and the pipeline tells the caller.</li>
+     * </ul>
+     *
+     * Generated from protobuf field <code>repeated string capabilities = 18;</code>
+     */
+    private $capabilities;
+    /**
+     * Answer of the speech-to-speech pipeline to the <code>warm_transfer_outcome</code> notice of a
+     * <code>SipSetCallMediaControl</code> request. Only in the response of that request;
+     * <code>SIP_WARM_TRANSFER_OUTCOME_NOTICE_STATUS_UNSPECIFIED</code> everywhere else and when the request carried no
+     * notice
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipWarmTransferOutcomeNoticeStatus warm_transfer_outcome_notice_status = 19;</code>
+     */
+    protected $warm_transfer_outcome_notice_status = 0;
 
     /**
      * Constructor.
@@ -171,6 +200,23 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      *     @type int $sip_response_code
      *           SIP response code of the last transfer attempt of the ongoing call (<code>202</code> when accepted, the refusal code
      *           otherwise, <code>0</code> when unknown). Call-scoped
+     *     @type \Ondewo\Sip\SipDelegatedTransfer $delegated_transfer
+     *           The transfer parked for a client to claim (see <code>SipTransferDelegation</code>). Unset (empty) when no transfer
+     *           is parked, which is always the case in a container started without <code>SIP_TRANSFER_DELEGATION_ACTIVE=True</code>.
+     *           Call-scoped
+     *     @type string[] $capabilities
+     *           <p>Optional features this container supports, as stable tokens. Fixed for the life of the container, so it is the
+     *           same on every status. Empty (default): none of them, as for a container built before this field existed. Clients
+     *           ignore tokens they do not know.</p>
+     *           <ul>
+     *             <li><code>warm-transfer-outcome-notice</code>: <code>SipSetCallMediaControlRequest.warm_transfer_outcome</code>
+     *             is handed to the speech-to-speech pipeline, and the pipeline tells the caller.</li>
+     *           </ul>
+     *     @type int $warm_transfer_outcome_notice_status
+     *           Answer of the speech-to-speech pipeline to the <code>warm_transfer_outcome</code> notice of a
+     *           <code>SipSetCallMediaControl</code> request. Only in the response of that request;
+     *           <code>SIP_WARM_TRANSFER_OUTCOME_NOTICE_STATUS_UNSPECIFIED</code> everywhere else and when the request carried no
+     *           notice
      * }
      */
     public function __construct($data = NULL) {
@@ -198,9 +244,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setAccountName($var)
+    public function setAccountName(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->account_name = $var;
 
         return $this;
@@ -234,9 +280,8 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param \Google\Protobuf\Timestamp $var
      * @return $this
      */
-    public function setTimestamp($var)
+    public function setTimestamp(\Google\Protobuf\Timestamp|null $var)
     {
-        GPBUtil::checkMessage($var, \Google\Protobuf\Timestamp::class);
         $this->timestamp = $var;
 
         return $this;
@@ -246,7 +291,7 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * Status type
      *
      * Generated from protobuf field <code>.ondewo.sip.SipStatus.StatusType status_type = 3;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\SipStatus\StatusType}
      */
     public function getStatusType()
     {
@@ -257,10 +302,10 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * Status type
      *
      * Generated from protobuf field <code>.ondewo.sip.SipStatus.StatusType status_type = 3;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\SipStatus\StatusType}
      * @return $this
      */
-    public function setStatusType($var)
+    public function setStatusType(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\SipStatus\StatusType::class);
         $this->status_type = $var;
@@ -286,9 +331,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setCalleeId($var)
+    public function setCalleeId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->callee_id = $var;
 
         return $this;
@@ -312,9 +357,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setTransferCallId($var)
+    public function setTransferCallId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->transfer_call_id = $var;
 
         return $this;
@@ -338,7 +383,7 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param array|\Google\Protobuf\Internal\MapField $var
      * @return $this
      */
-    public function setHeaders($var)
+    public function setHeaders(array|\Google\Protobuf\Internal\MapField $var)
     {
         $arr = GPBUtil::checkMapField($var, \Google\Protobuf\Internal\GPBType::STRING, \Google\Protobuf\Internal\GPBType::STRING);
         $this->headers = $arr;
@@ -364,9 +409,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setDescription($var)
+    public function setDescription(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->description = $var;
 
         return $this;
@@ -390,9 +435,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setExceptionName($var)
+    public function setExceptionName(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->exception_name = $var;
 
         return $this;
@@ -416,9 +461,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setExceptionTraceback($var)
+    public function setExceptionTraceback(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->exception_traceback = $var;
 
         return $this;
@@ -442,9 +487,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setNluSessionName($var)
+    public function setNluSessionName(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->nlu_session_name = $var;
 
         return $this;
@@ -482,9 +527,8 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param \Ondewo\Sip\AnsweringMachineDetectionResult $var
      * @return $this
      */
-    public function setAmdResult($var)
+    public function setAmdResult(\Ondewo\Sip\AnsweringMachineDetectionResult|null $var)
     {
-        GPBUtil::checkMessage($var, \Ondewo\Sip\AnsweringMachineDetectionResult::class);
         $this->amd_result = $var;
 
         return $this;
@@ -514,9 +558,9 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setCallId($var)
+    public function setCallId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->call_id = $var;
 
         return $this;
@@ -544,9 +588,8 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param bool $var
      * @return $this
      */
-    public function setBotMuted($var)
+    public function setBotMuted(bool $var)
     {
-        GPBUtil::checkBool($var);
         $this->bot_muted = $var;
 
         return $this;
@@ -572,9 +615,8 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param bool $var
      * @return $this
      */
-    public function setListeningPaused($var)
+    public function setListeningPaused(bool $var)
     {
-        GPBUtil::checkBool($var);
         $this->listening_paused = $var;
 
         return $this;
@@ -598,7 +640,7 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setCallAudioStreams($var)
+    public function setCallAudioStreams(int $var)
     {
         GPBUtil::checkInt32($var);
         $this->call_audio_streams = $var;
@@ -626,10 +668,119 @@ class SipStatus extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setSipResponseCode($var)
+    public function setSipResponseCode(int $var)
     {
         GPBUtil::checkInt32($var);
         $this->sip_response_code = $var;
+
+        return $this;
+    }
+
+    /**
+     * The transfer parked for a client to claim (see <code>SipTransferDelegation</code>). Unset (empty) when no transfer
+     * is parked, which is always the case in a container started without <code>SIP_TRANSFER_DELEGATION_ACTIVE=True</code>.
+     * Call-scoped
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipDelegatedTransfer delegated_transfer = 17;</code>
+     * @return \Ondewo\Sip\SipDelegatedTransfer|null
+     */
+    public function getDelegatedTransfer()
+    {
+        return $this->delegated_transfer;
+    }
+
+    public function hasDelegatedTransfer()
+    {
+        return isset($this->delegated_transfer);
+    }
+
+    public function clearDelegatedTransfer()
+    {
+        unset($this->delegated_transfer);
+    }
+
+    /**
+     * The transfer parked for a client to claim (see <code>SipTransferDelegation</code>). Unset (empty) when no transfer
+     * is parked, which is always the case in a container started without <code>SIP_TRANSFER_DELEGATION_ACTIVE=True</code>.
+     * Call-scoped
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipDelegatedTransfer delegated_transfer = 17;</code>
+     * @param \Ondewo\Sip\SipDelegatedTransfer $var
+     * @return $this
+     */
+    public function setDelegatedTransfer(\Ondewo\Sip\SipDelegatedTransfer|null $var)
+    {
+        $this->delegated_transfer = $var;
+
+        return $this;
+    }
+
+    /**
+     * <p>Optional features this container supports, as stable tokens. Fixed for the life of the container, so it is the
+     * same on every status. Empty (default): none of them, as for a container built before this field existed. Clients
+     * ignore tokens they do not know.</p>
+     * <ul>
+     *   <li><code>warm-transfer-outcome-notice</code>: <code>SipSetCallMediaControlRequest.warm_transfer_outcome</code>
+     *   is handed to the speech-to-speech pipeline, and the pipeline tells the caller.</li>
+     * </ul>
+     *
+     * Generated from protobuf field <code>repeated string capabilities = 18;</code>
+     * @return RepeatedField<string>
+     */
+    public function getCapabilities()
+    {
+        return $this->capabilities;
+    }
+
+    /**
+     * <p>Optional features this container supports, as stable tokens. Fixed for the life of the container, so it is the
+     * same on every status. Empty (default): none of them, as for a container built before this field existed. Clients
+     * ignore tokens they do not know.</p>
+     * <ul>
+     *   <li><code>warm-transfer-outcome-notice</code>: <code>SipSetCallMediaControlRequest.warm_transfer_outcome</code>
+     *   is handed to the speech-to-speech pipeline, and the pipeline tells the caller.</li>
+     * </ul>
+     *
+     * Generated from protobuf field <code>repeated string capabilities = 18;</code>
+     * @param string[] $var
+     * @return $this
+     */
+    public function setCapabilities(array|RepeatedField $var)
+    {
+        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::STRING);
+        $this->capabilities = $arr;
+
+        return $this;
+    }
+
+    /**
+     * Answer of the speech-to-speech pipeline to the <code>warm_transfer_outcome</code> notice of a
+     * <code>SipSetCallMediaControl</code> request. Only in the response of that request;
+     * <code>SIP_WARM_TRANSFER_OUTCOME_NOTICE_STATUS_UNSPECIFIED</code> everywhere else and when the request carried no
+     * notice
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipWarmTransferOutcomeNoticeStatus warm_transfer_outcome_notice_status = 19;</code>
+     * @return int one of the values in {@see \Ondewo\Sip\SipWarmTransferOutcomeNoticeStatus}
+     */
+    public function getWarmTransferOutcomeNoticeStatus()
+    {
+        return $this->warm_transfer_outcome_notice_status;
+    }
+
+    /**
+     * Answer of the speech-to-speech pipeline to the <code>warm_transfer_outcome</code> notice of a
+     * <code>SipSetCallMediaControl</code> request. Only in the response of that request;
+     * <code>SIP_WARM_TRANSFER_OUTCOME_NOTICE_STATUS_UNSPECIFIED</code> everywhere else and when the request carried no
+     * notice
+     *
+     * Generated from protobuf field <code>.ondewo.sip.SipWarmTransferOutcomeNoticeStatus warm_transfer_outcome_notice_status = 19;</code>
+     * @param int $var one of the values in {@see \Ondewo\Sip\SipWarmTransferOutcomeNoticeStatus}
+     * @return $this
+     */
+    public function setWarmTransferOutcomeNoticeStatus(int $var)
+    {
+        GPBUtil::checkEnum($var, \Ondewo\Sip\SipWarmTransferOutcomeNoticeStatus::class);
+        $this->warm_transfer_outcome_notice_status = $var;
 
         return $this;
     }

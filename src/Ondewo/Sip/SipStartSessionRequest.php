@@ -68,9 +68,9 @@ class SipStartSessionRequest extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setAccountName($var)
+    public function setAccountName(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->account_name = $var;
 
         return $this;
@@ -94,7 +94,7 @@ class SipStartSessionRequest extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setAutoAnswerInterval($var)
+    public function setAutoAnswerInterval(int $var)
     {
         GPBUtil::checkInt32($var);
         $this->auto_answer_interval = $var;

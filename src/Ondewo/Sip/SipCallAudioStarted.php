@@ -80,9 +80,9 @@ class SipCallAudioStarted extends \Google\Protobuf\Internal\Message
      * @param string $var
      * @return $this
      */
-    public function setStreamId($var)
+    public function setStreamId(string $var)
     {
-        GPBUtil::checkString($var, True);
+        GPBUtil::checkString($var, true);
         $this->stream_id = $var;
 
         return $this;
@@ -106,7 +106,7 @@ class SipCallAudioStarted extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setSampleRateHz($var)
+    public function setSampleRateHz(int $var)
     {
         GPBUtil::checkInt32($var);
         $this->sample_rate_hz = $var;
@@ -132,7 +132,7 @@ class SipCallAudioStarted extends \Google\Protobuf\Internal\Message
      * @param int $var
      * @return $this
      */
-    public function setFrameMs($var)
+    public function setFrameMs(int $var)
     {
         GPBUtil::checkInt32($var);
         $this->frame_ms = $var;
@@ -144,7 +144,7 @@ class SipCallAudioStarted extends \Google\Protobuf\Internal\Message
      * Mode of the stream
      *
      * Generated from protobuf field <code>.ondewo.sip.SipCallAudioMode mode = 4;</code>
-     * @return int
+     * @return int one of the values in {@see \Ondewo\Sip\SipCallAudioMode}
      */
     public function getMode()
     {
@@ -155,10 +155,10 @@ class SipCallAudioStarted extends \Google\Protobuf\Internal\Message
      * Mode of the stream
      *
      * Generated from protobuf field <code>.ondewo.sip.SipCallAudioMode mode = 4;</code>
-     * @param int $var
+     * @param int $var one of the values in {@see \Ondewo\Sip\SipCallAudioMode}
      * @return $this
      */
-    public function setMode($var)
+    public function setMode(int $var)
     {
         GPBUtil::checkEnum($var, \Ondewo\Sip\SipCallAudioMode::class);
         $this->mode = $var;
