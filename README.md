@@ -31,8 +31,10 @@ submodule and pinned to a release tag. The generated stubs are **committed** —
 composer package, Packagist serves the tree of a git tag verbatim and composer has no build step, so what is
 committed here is exactly what a consumer receives.
 
-The only hand-written PHP is the bearer-token authentication surface in `auth/`, which turns a token into the
-`$opts` array a generated stub is constructed with.
+The only hand-written PHP is the authentication surface in `auth/`: `ClientConfig` (TLS / mutual TLS and the
+Keycloak credentials), a static bearer token, and a Keycloak token provider that logs in (or starts from a
+handed-off offline token) and keeps the access token fresh. It turns all of that into the `$opts` array a
+generated stub is constructed with.
 
 ## Requirements
 
@@ -41,6 +43,7 @@ The only hand-written PHP is the bearer-token authentication surface in `auth/`,
 * The **bcmath** PHP extension (`ext-bcmath`) — only to parse integers out of the JSON wire
   format; `google/protobuf` merely *suggests* it, so `mergeFromJsonString()` on a message with an
   int field fails without it
+* The **curl** PHP extension (`ext-curl`) — only for Keycloak authentication with the default token transport
 * [Composer](https://getcomposer.org/) 2.x
 * Docker — only to *regenerate* the stubs, never to *use* the client
 
@@ -117,7 +120,7 @@ make setup_developer_environment_locally
 .
 ├── ondewo-sip-api          <----- submodule: the .proto definitions (ondewo/ = the services, google/ = imports)
 ├── ondewo-proto-compiler   <----- submodule: the compiler images, pinned to tags/5.15.5
-├── auth                    <----- HAND-WRITTEN sources (bearer token authenticator, ClientConfig: TLS / mutual TLS)
+├── auth                    <----- HAND-WRITTEN sources (ClientConfig: TLS / mutual TLS / Keycloak, bearer token, Keycloak token provider)
 ├── src                     <----- GENERATED stubs, committed - compiler-owned, wiped on every generation run
 │   ├── GPBMetadata         <----- descriptor bootstrap, one class per .proto
 │   └── Ondewo              <----- messages, enums and the <Service>Client stubs
@@ -294,6 +297,62 @@ connection is detected in about 40 s instead of 85 s); `grpc.max_reconnect_backo
 120 s). **Gap:** the Python SDK also installs a per-method retry policy (idempotent reads only); this PHP SDK
 installs none, so only gRPC's transparent retries (a request that provably never reached the server) apply.
 
+## Keycloak authentication (password or offline token)
+
+With `keycloakUrl`, `realm` and `clientId` set on `ClientConfig`, `channelOptions()` attaches a
+`KeycloakTokenProvider` as the stub's `update_metadata`, so every call carries `authorization: Bearer <token>`.
+Pick ONE credential:
+
+```php
+<?php
+
+use Ondewo\Sip\SipClient;
+use Ondewo\Sip\Auth\ClientConfig;
+
+$keycloak = [
+    'keycloakUrl' => 'https://keycloak.example.com/auth', // the part before /realms/<realm>
+    'realm' => 'ondewo-ccai-platform',
+    'clientId' => 'ondewo-nlu-cai-sdk-public',           // PUBLIC client: no secret exists or is sent
+    'username' => 'technical-user@example.com',
+];
+
+// 1) Password: ONE password grant with scope=offline_access, then refresh grants.
+$config = new ClientConfig(host: 'sip.example.com', port: 443, ...$keycloak, password: getenv('ONDEWO_PASSWORD'));
+
+// 2) Offline token handed over by another process: ONE refresh grant, NEVER a password grant.
+$config = new ClientConfig(host: 'sip.example.com', port: 443, ...$keycloak, refreshToken: getenv('ONDEWO_OFFLINE_TOKEN'));
+
+$client = new SipClient($config->target(), $config->channelOptions()); // channelOptions(logger: $psr3Logger) logs to PSR-3
+```
+
+What it does, identically to the other ONDEWO SDKs:
+
+* **Validation when the config is built:** `keycloakUrl`, `realm` and `clientId` are all-or-nothing, and a
+  Keycloak config needs `password`, `refreshToken` or both (`refreshToken` then wins; the password is never
+  sent). Without the three fields nothing changes: no provider, no `authorization` metadata.
+* **One login per credential set and process.** Every stub built from the same credentials shares one provider
+  (`KeycloakTokenProviderRegistry`, keyed by a SHA-256 of the fields, never holding a secret). The initial token
+  request happens in `channelOptions()`, so a refused credential fails there with a
+  `KeycloakAuthenticationException`, not on the first call.
+* **Lazy refresh.** PHP has no background threads in a request/FPM process, so the token is refreshed on the
+  call that finds it within 30 s of its expiry. A rotated refresh token is adopted; one missing from a response
+  keeps the previous one.
+* **A failed refresh never kills the client, and an outage is never hammered.** The failure is logged once
+  (WARNING), retried after a full-jitter backoff (5 s doubling up to 300 s), and while the backoff runs no token
+  request is sent at all. The call goes out with the still-valid token; only a token that has really EXPIRED
+  raises `KeycloakAuthenticationException` (on the gRPC call). Recovery is logged once (INFO). A refused token is
+  **never** answered with a password login.
+* `tokenExpirationInS` bounds how long refreshing goes on, from the initial acquisition; `verifySsl: false`
+  (for a self-signed local Envoy) switches certificate verification off for the token request only.
+* Every failure is a `KeycloakAuthenticationException` with the cause in `getPrevious()`. No message, log line
+  or rendering (`__toString()`, `var_dump()`, `print_r()`, `json_encode()`) contains the password, a refresh
+  token or an access token: secrets render as `***REDACTED***` (and an unset one as `''`).
+* Without a PSR-3 logger the WARNING / INFO lines go to `error_log()`, prefixed `WARNING |` / `INFO |`.
+* The provider can also be used directly, e.g. with a hand-built stub:
+  `new KeycloakTokenProvider($url, $realm, $clientId, $username, $password, refreshToken: $token)` is itself the
+  `update_metadata` callable. A custom `KeycloakTokenTransport` replaces the curl transport (tests, proxies).
+  `KeycloakTokenProviderRegistry::clear()` forgets every provider, e.g. between the jobs of a long-running worker.
+
 ### A test PKI with openssl
 
 A CA, a server certificate with SANs, and a client certificate with the `clientAuth` extended key usage. For
@@ -378,6 +437,10 @@ What the suite actually asserts:
 | `tests/Generated/ServiceClientTest.php` | A stub that cannot be constructed against a channel, with plain or bearer-token options — for every service the descriptors declare |
 | `tests/Auth/BearerTokenAuthenticatorTest.php` | Any regression in the hand-written auth surface |
 | `tests/Auth/ClientConfigTest.php` | Half a client identity reaching ext-grpc, an identity dropped on a plaintext channel, a PEM or key in a message or rendering, a wrong target or channel default |
+| `tests/Auth/KeycloakTokenProviderTest.php` | The shared Keycloak catalogue (T01-T47, lazy-path form): the backoff ladder, a refresh failure that ends the refreshing or hammers an outage, a password fallback, a still-valid token refused, a malformed token response that changes state, a credential in a log or error |
+| `tests/Auth/KeycloakTokenProviderRegistryTest.php` | Two credential sets sharing a provider (two tenants with offline tokens included), a double login, a secret in the registry key, a closed provider handed out again |
+| `tests/Auth/ClientConfigKeycloakTest.php` | A partial Keycloak triple or a missing credential accepted, a password or refresh token in a rendering, `refreshToken` not the last constructor parameter, `authorization` metadata without Keycloak |
+| `tests/Auth/CurlKeycloakTokenTransportTest.php` | The default transport over a real socket: the form on the wire, connection refused, the 10 s bound, TLS verification on and off, and the whole provider and `ClientConfig` path end to end |
 | `tests/Tls/MutualTlsHandshakeTest.php` | A broken real handshake: TLS, mutual TLS, CRLF PEMs and `[::1]` must connect; a missing or foreign client certificate, a wrong CA and the system roots against the test CA must fail as `UNAVAILABLE` |
 | `tests/ReleaseNotesTest.php` | A `RELEASE.md` heading or separator the release-notes slice would miss (a GitHub release with empty notes), and an unanchored slice that takes the 9.1.10 entry for 9.1.1 |
 | `tests/ReleaseProcessTest.php` | The release contract: the step order of `make release`, the devops-accounts clone deleted before it starts, read-only preflight/verify, no `sudo`, no `gh auth login`, no moving image tags |
@@ -385,7 +448,9 @@ What the suite actually asserts:
 
 The handshake test generates its PKI with ext-openssl at test time and needs `python3` with `grpcio` for its
 server (`tests/Tls/tls_test_server.py`; PHP has no gRPC server): `pip install grpcio`, or point
-`ONDEWO_TLS_TEST_PYTHON` at an interpreter that has it. CI installs it.
+`ONDEWO_TLS_TEST_PYTHON` at an interpreter that has it. CI installs it. The Keycloak transport test runs a
+scripted token endpoint on plain HTTP and HTTPS with the same interpreter (`tests/Auth/keycloak_test_server.py`,
+standard library only).
 
 Coverage is reported for the **hand-written** code only — `phpunit.xml.dist`'s `<source>` is `auth/`, and
 `make coverage` fails below `COVERAGE_MIN` (100%). The generated stubs are machine output and are deliberately

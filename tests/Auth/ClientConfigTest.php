@@ -274,6 +274,14 @@ final class ClientConfigTest extends TestCase
             'grpcClientCert' => '',
             'grpcClientKey' => '',
             'useSecureChannel' => true,
+            'keycloakUrl' => '',
+            'realm' => '',
+            'clientId' => '',
+            'username' => '',
+            'password' => '',
+            'tokenExpirationInS' => null,
+            'verifySsl' => true,
+            'refreshToken' => '',
         ], $config->__debugInfo());
         self::assertStringNotContainsString(ClientConfig::REDACTED, (string) $config);
     }
