@@ -85,8 +85,19 @@ final class ClientConfigKeycloakTest extends TestCase
     public function testT57KeycloakWithNeitherPasswordNorTokenIsRefused(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Either the field `password` or the field `refreshToken` is mandatory in ClientConfig.');
+        $this->expectExceptionMessage('Either the field `password` or the field `refreshToken` (`refresh_token`) is mandatory in ClientConfig.');
         self::config(['password' => '']);
+    }
+
+    public function testT57RefusalNamesBothCredentialFieldsInTheSpecSpelling(): void
+    {
+        try {
+            self::config(['password' => '']);
+            self::fail('a Keycloak config with neither credential was accepted');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('password', $e->getMessage());
+            self::assertStringContainsString('refresh_token', $e->getMessage());
+        }
     }
 
     public function testT58APasswordConfigIsUnchanged(): void

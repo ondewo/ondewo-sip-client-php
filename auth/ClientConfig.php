@@ -352,7 +352,7 @@ final class ClientConfig implements JsonSerializable, Stringable
         }
         if ($this->password === '' && $this->refreshToken === '') {
             throw new InvalidArgumentException(
-                'Either the field `password` or the field `refreshToken` is mandatory in ClientConfig.'
+                'Either the field `password` or the field `refreshToken` (`refresh_token`) is mandatory in ClientConfig.'
             );
         }
     }
