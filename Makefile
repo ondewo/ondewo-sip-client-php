@@ -51,7 +51,7 @@
 
 # MUST BE THE SAME AS THE API in Major and Minor Version Number
 # example: API 2.9.0 --> Client 2.9.X
-ONDEWO_SIP_VERSION=5.7.0
+ONDEWO_SIP_VERSION=5.7.2
 
 # Submodule pins. Both are checked out by `make checkout_defined_submodule_versions`, so the
 # stubs of a release are always reproducible from the two commits recorded here.
